@@ -31,6 +31,8 @@ LRESULT CALLBACK MainWindowCallback(
 
         case WM_PAINT:
         {
+            static DWORD Operation;
+            Operation = Operation == WHITENESS ? BLACKNESS : WHITENESS;
             PAINTSTRUCT Paint;
             HDC DeviceContext = BeginPaint(Window, &Paint);
             PatBlt(DeviceContext,
@@ -38,7 +40,7 @@ LRESULT CALLBACK MainWindowCallback(
                 Paint.rcPaint.top,
                 Paint.rcPaint.right - Paint.rcPaint.left,
                 Paint.rcPaint.bottom - Paint.rcPaint.top,
-                WHITENESS);
+                Operation);
             EndPaint(Window, &Paint);
         } break;
 
