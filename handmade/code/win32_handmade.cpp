@@ -11,6 +11,45 @@ global_variable BITMAPINFO BitmapInfo;
 global_variable void *BitmapMemory;
 global_variable int BitmapWidth;
 global_variable int BitmapHeight;
+global_variable int BytesPerPixel = 4;
+
+internal void RenderWeirdGradient(int XOffset, int YOffset)
+{
+    // Pitch = byte offset from one row to the next
+    int Pitch = BitmapWidth * BytesPerPixel;
+    // Create pointer to the ... first 8 bits? lower 8 bits? TODO
+    uint8_t *Row = (uint8_t *)BitmapMemory;
+
+    for (int Y = 0; Y < BitmapHeight; Y++)
+    {
+        uint8_t *Pixel = (uint8_t *)Row;
+
+        for (int X = 0; X < BitmapWidth; X++)
+        {
+            // Set blue byte
+            // *Pixel = 0;
+            *Pixel = (uint8_t)(X + XOffset);
+            // Advance pointer one byte
+            Pixel++;
+
+            // Set green byte
+            // *Pixel = 0;
+            *Pixel = (uint8_t)(Y + YOffset);
+            Pixel++;
+
+            // Set red byte
+            *Pixel = Y/255 * X;
+            Pixel++;
+
+            // Set padding byte (why wasn't this first? TODO)
+            *Pixel = 0;
+            Pixel++;
+        }
+
+        // Advance row pointer by number of bytes per row
+        Row += Pitch;
+    }
+}
 
 internal void Win32ResizeDIBSection(int Width, int Height)
 {
@@ -29,46 +68,10 @@ internal void Win32ResizeDIBSection(int Width, int Height)
     BitmapInfo.bmiHeader.biBitCount = 32;
     BitmapInfo.bmiHeader.biCompression = BI_RGB;
 
-    int BytesPerPixel = 4;
     int BitmapMemorySize = BitmapWidth * BitmapHeight * BytesPerPixel;
     BitmapMemory = VirtualAlloc(0, BitmapMemorySize, MEM_COMMIT, PAGE_READWRITE);
 
-    // Pitch = byte offset from one row to the next
-    int Pitch = Width * BytesPerPixel;
-    // Create pointer to the ... first 8 bits? lower 8 bits? TODO
-    uint8_t *Row = (uint8_t *)BitmapMemory;
-
-    for (int Y = 0; Y < BitmapHeight; Y++)
-    {
-        uint8_t *Pixel = (uint8_t *)Row;
-
-        for (int X = 0; X < BitmapWidth; X++)
-        {
-            // Set blue byte
-            // *Pixel = 0;
-            *Pixel = (uint8_t)X;
-            // Advance pointer one byte
-            Pixel++;
-
-            // Set green byte
-            // *Pixel = 0;
-            *Pixel = (uint8_t)Y;
-            Pixel++;
-
-            // Set red byte
-            *Pixel = Y/255 * X;
-            Pixel++;
-
-            // Set padding byte (why wasn't this first? TODO)
-            *Pixel = 0;
-            Pixel++;
-        }
-
-        // Advance row pointer by number of bytes per row
-        Row += Pitch;
-    }
-
-	OutputDebugStringA("Finished bitmap");
+    RenderWeirdGradient(128, 64);
 }
 
 internal void Win32UpdateWindow(
