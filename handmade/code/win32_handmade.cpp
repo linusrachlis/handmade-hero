@@ -70,13 +70,11 @@ internal void Win32ResizeDIBSection(int Width, int Height)
 
     int BitmapMemorySize = BitmapWidth * BitmapHeight * BytesPerPixel;
     BitmapMemory = VirtualAlloc(0, BitmapMemorySize, MEM_COMMIT, PAGE_READWRITE);
-
-    RenderWeirdGradient(128, 64);
 }
 
 internal void Win32UpdateWindow(
     HDC DeviceContext,
-    RECT *WindowRect,
+    RECT *ClientRect,
     int X,
     int Y,
     int Width,
@@ -84,8 +82,8 @@ internal void Win32UpdateWindow(
 {
     // TODO for now, ignoring the desired repainting rectangle, and just repainting the
     // whole window every time. If we stick with this way, then stop passing X,Y,Width,Height.
-    int WindowWidth = WindowRect->right - WindowRect->left;
-    int WindowHeight = WindowRect->bottom - WindowRect->top;
+    int WindowWidth = ClientRect->right - ClientRect->left;
+    int WindowHeight = ClientRect->bottom - ClientRect->top;
     StretchDIBits(DeviceContext,
         /*
         X, Y, Width, Height,
@@ -175,7 +173,7 @@ int CALLBACK WinMain(
     WindowClass.lpszClassName = "HandmadeHeroWindowClass";
 
     if (RegisterClass(&WindowClass)) {
-        HWND WindowHandle = CreateWindowEx(
+        HWND Window = CreateWindowEx(
             0,
             WindowClass.lpszClassName,
             "Handmade Hero",
@@ -189,17 +187,38 @@ int CALLBACK WinMain(
             Instance,
             0);
 
-        if (WindowHandle) {
+        if (Window)
+        {
             Running = true;
-            while (Running) {
+            int XOffset = 0;
+            int YOffset = 0;
+
+            while (Running)
+            {
                 MSG Message;
-                BOOL MessageResult = GetMessage(&Message, 0, 0, 0);
-                if (MessageResult > 0) {
+                while (PeekMessage(&Message, 0, 0, 0, PM_REMOVE))
+                {
+                    if (Message.message == WM_QUIT)
+                    {
+                        Running = false;
+                    }
+
                     TranslateMessage(&Message);
                     DispatchMessage(&Message);
-                } else {
-                    break;
                 }
+
+                HDC DeviceContext = GetDC(Window);
+                RECT ClientRect;
+                GetClientRect(Window, &ClientRect);
+                int Width = ClientRect.right - ClientRect.left;
+                int Height = ClientRect.bottom - ClientRect.top;
+
+                RenderWeirdGradient(XOffset, YOffset);
+                Win32UpdateWindow(DeviceContext, &ClientRect, 0, 0, Width, Height);
+                ReleaseDC(Window, DeviceContext);
+
+                XOffset++;
+                YOffset++;
             }
         } else {
             // TODO logging
