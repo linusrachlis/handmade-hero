@@ -12,6 +12,7 @@ global_variable void *BitmapMemory;
 global_variable int BitmapWidth;
 global_variable int BitmapHeight;
 global_variable int BytesPerPixel = 4;
+global_variable uint8_t RedValue = 0;
 
 internal void RenderWeirdGradient(int XOffset, int YOffset)
 {
@@ -26,7 +27,7 @@ internal void RenderWeirdGradient(int XOffset, int YOffset)
 
         for (int X = 0; X < BitmapWidth; X++)
         {
-            uint8_t Red = Y/255 * X;
+            uint8_t Red = RedValue;
             uint8_t Green = (Y + YOffset);
             uint8_t Blue = (X + XOffset);
             // Pixel structure in register: xx RR GG BB
@@ -38,6 +39,8 @@ internal void RenderWeirdGradient(int XOffset, int YOffset)
         // Advance row pointer by number of bytes per row
         Row += Pitch;
     }
+
+    RedValue++;
 }
 
 internal void Win32ResizeDIBSection(int Width, int Height)
