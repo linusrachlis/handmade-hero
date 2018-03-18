@@ -22,27 +22,16 @@ internal void RenderWeirdGradient(int XOffset, int YOffset)
 
     for (int Y = 0; Y < BitmapHeight; Y++)
     {
-        uint8_t *Pixel = (uint8_t *)Row;
+        uint32_t *Pixel = (uint32_t *)Row;
 
         for (int X = 0; X < BitmapWidth; X++)
         {
-            // Set blue byte
-            // *Pixel = 0;
-            *Pixel = (uint8_t)(X + XOffset);
-            // Advance pointer one byte
-            Pixel++;
-
-            // Set green byte
-            // *Pixel = 0;
-            *Pixel = (uint8_t)(Y + YOffset);
-            Pixel++;
-
-            // Set red byte
-            *Pixel = Y/255 * X;
-            Pixel++;
-
-            // Set padding byte (why wasn't this first? TODO)
-            *Pixel = 0;
+            uint8_t Red = Y/255 * X;
+            uint8_t Green = (Y + YOffset);
+            uint8_t Blue = (X + XOffset);
+            // Pixel structure in register: xx RR GG BB
+            *Pixel = (Red << 16) | (Green << 8) | Blue;
+            // Advance to write next pixel
             Pixel++;
         }
 
