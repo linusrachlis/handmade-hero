@@ -66,7 +66,7 @@ internal void Win32ResizeDIBSection(int Width, int Height)
 
 internal void Win32UpdateWindow(
     HDC DeviceContext,
-    RECT *ClientRect,
+    RECT ClientRect,
     int X,
     int Y,
     int Width,
@@ -74,8 +74,8 @@ internal void Win32UpdateWindow(
 {
     // TODO for now, ignoring the desired repainting rectangle, and just repainting the
     // whole window every time. If we stick with this way, then stop passing X,Y,Width,Height.
-    int WindowWidth = ClientRect->right - ClientRect->left;
-    int WindowHeight = ClientRect->bottom - ClientRect->top;
+    int WindowWidth = ClientRect.right - ClientRect.left;
+    int WindowHeight = ClientRect.bottom - ClientRect.top;
     StretchDIBits(DeviceContext,
         /*
         X, Y, Width, Height,
@@ -137,7 +137,7 @@ LRESULT CALLBACK Win32MainWindowCallback(
             RECT ClientRect;
             GetClientRect(Window, &ClientRect);
 
-            Win32UpdateWindow(DeviceContext, &ClientRect, X, Y, Width, Height);
+            Win32UpdateWindow(DeviceContext, ClientRect, X, Y, Width, Height);
             EndPaint(Window, &Paint);
         } break;
 
@@ -158,7 +158,7 @@ int CALLBACK WinMain(
 {
     WNDCLASS WindowClass = {};
 
-    WindowClass.style = CS_OWNDC | CS_HREDRAW | CS_VREDRAW;
+    WindowClass.style = CS_HREDRAW | CS_VREDRAW;
     WindowClass.lpfnWndProc = Win32MainWindowCallback;
     WindowClass.hInstance = Instance;
     // WindowClass.hIcon;
@@ -206,7 +206,7 @@ int CALLBACK WinMain(
                 int Height = ClientRect.bottom - ClientRect.top;
 
                 RenderWeirdGradient(XOffset, YOffset);
-                Win32UpdateWindow(DeviceContext, &ClientRect, 0, 0, Width, Height);
+                Win32UpdateWindow(DeviceContext, ClientRect, 0, 0, Width, Height);
                 ReleaseDC(Window, DeviceContext);
 
                 XOffset++;
