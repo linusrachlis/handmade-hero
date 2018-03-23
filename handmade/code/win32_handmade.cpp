@@ -87,19 +87,9 @@ internal void Win32PaintBufferToWindow(
     HDC DeviceContext,
     int WindowWidth,
     int WindowHeight,
-    win32_offscreen_buffer Buffer,
-    int X,
-    int Y,
-    int Width,
-    int Height)
+    win32_offscreen_buffer Buffer)
 {
-    // TODO for now, ignoring the desired repainting rectangle, and just repainting the
-    // whole window every time. If we stick with this way, then stop taking X,Y,Width,Height.
     StretchDIBits(DeviceContext,
-        /*
-        X, Y, Width, Height,
-        X, Y, Width, Height,
-        */
         0, 0, WindowWidth, WindowHeight,
         0, 0, Buffer.Width, Buffer.Height,
         Buffer.Memory,
@@ -117,11 +107,6 @@ LRESULT CALLBACK Win32MainWindowCallback(
 
     switch (Message)
     {
-        case WM_SIZE:
-        {
-            OutputDebugStringA("WM_SIZE\n");
-        } break;
-
         case WM_CLOSE:
         {
             OutputDebugStringA("WM_CLOSE\n");
@@ -143,19 +128,9 @@ LRESULT CALLBACK Win32MainWindowCallback(
         {
             PAINTSTRUCT Paint;
             HDC DeviceContext = BeginPaint(Window, &Paint);
-            int X = Paint.rcPaint.left;
-            int Y = Paint.rcPaint.top;
-            int Width = Paint.rcPaint.right - Paint.rcPaint.left;
-            int Height = Paint.rcPaint.bottom - Paint.rcPaint.top;
-
             win32_window_dimension Dimension = Win32GetWindowDimension(Window);
-
             Win32PaintBufferToWindow(
-                DeviceContext,
-                Dimension.Width, Dimension.Height,
-                GlobalBackbuffer,
-                X, Y, Width, Height);
-
+                DeviceContext, Dimension.Width, Dimension.Height, GlobalBackbuffer);
             EndPaint(Window, &Paint);
         } break;
 
@@ -225,9 +200,7 @@ int CALLBACK WinMain(
                 Win32PaintBufferToWindow(
                     DeviceContext,
                     Dimension.Width, Dimension.Height,
-                    GlobalBackbuffer,
-                    0, 0,
-                    Dimension.Width, Dimension.Height);
+                    GlobalBackbuffer);
                 ReleaseDC(Window, DeviceContext);
 
                 XOffset++;
