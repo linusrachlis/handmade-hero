@@ -9,6 +9,7 @@
 		{
 			"name": "Build Handmade Hero",
 			"shell_cmd": "\"C:/Program Files (x86)/Microsoft Visual Studio/2017/Community/Common7/Tools/VsDevCmd.bat\" -no_logo & cd \"C:/users/linus/dev/handmade-hero/handmade/code/\" & \"build.bat\"",
+			"file_regex": "^(.+?)\\((\\d+)\\):",
 			"selector": "source.c, source.cpp, source.c++"
 		}
 	]
