@@ -36,16 +36,16 @@ internal win32_window_dimension Win32GetWindowDimension(HWND Window)
     return(Result);
 }
 
-internal void RenderWeirdGradient(win32_offscreen_buffer Buffer, int BlueOffset, int GreenOffset)
+internal void RenderWeirdGradient(win32_offscreen_buffer *Buffer, int BlueOffset, int GreenOffset)
 {
-    // Create pointer to the ... first 8 bits? lower 8 bits? TODO
-    uint8_t *Row = (uint8_t *)Buffer.Memory;
+    // Note: Row is a 1-byte because we use the Pitch to advance it, and Pitch is a number of bytes.
+    uint8_t *Row = (uint8_t *)Buffer->Memory;
 
-    for (int Y = 0; Y < Buffer.Height; Y++)
+    for (int Y = 0; Y < Buffer->Height; Y++)
     {
         uint32_t *Pixel = (uint32_t *)Row;
 
-        for (int X = 0; X < Buffer.Width; X++)
+        for (int X = 0; X < Buffer->Width; X++)
         {
             uint8_t Green = (Y + GreenOffset);
             uint8_t Blue = (X + BlueOffset);
@@ -56,7 +56,7 @@ internal void RenderWeirdGradient(win32_offscreen_buffer Buffer, int BlueOffset,
         }
 
         // Advance row pointer by number of bytes per row
-        Row += Buffer.Pitch;
+        Row += Buffer->Pitch;
     }
 }
 
@@ -84,16 +84,14 @@ internal void Win32ResizeDIBSection(win32_offscreen_buffer *Buffer, int Width, i
 }
 
 internal void Win32PaintBufferToWindow(
-    HDC DeviceContext,
-    int WindowWidth,
-    int WindowHeight,
-    win32_offscreen_buffer Buffer)
+    win32_offscreen_buffer *Buffer, HDC DeviceContext,
+    int WindowWidth, int WindowHeight)
 {
     StretchDIBits(DeviceContext,
         0, 0, WindowWidth, WindowHeight,
-        0, 0, Buffer.Width, Buffer.Height,
-        Buffer.Memory,
-        &Buffer.Info,
+        0, 0, Buffer->Width, Buffer->Height,
+        Buffer->Memory,
+        &Buffer->Info,
         DIB_RGB_COLORS, SRCCOPY);
 }
 
@@ -130,7 +128,7 @@ LRESULT CALLBACK Win32MainWindowCallback(
             HDC DeviceContext = BeginPaint(Window, &Paint);
             win32_window_dimension Dimension = Win32GetWindowDimension(Window);
             Win32PaintBufferToWindow(
-                DeviceContext, Dimension.Width, Dimension.Height, GlobalBackbuffer);
+                &GlobalBackbuffer, DeviceContext, Dimension.Width, Dimension.Height);
             EndPaint(Window, &Paint);
         } break;
 
@@ -243,11 +241,10 @@ int CALLBACK WinMain(
 
                 HDC DeviceContext = GetDC(Window);
                 win32_window_dimension Dimension = Win32GetWindowDimension(Window);
-                RenderWeirdGradient(GlobalBackbuffer, XOffset, YOffset);
+                RenderWeirdGradient(&GlobalBackbuffer, XOffset, YOffset);
                 Win32PaintBufferToWindow(
-                    DeviceContext,
-                    Dimension.Width, Dimension.Height,
-                    GlobalBackbuffer);
+                    &GlobalBackbuffer, DeviceContext,
+                    Dimension.Width, Dimension.Height);
                 ReleaseDC(Window, DeviceContext);
 
                 XOffset++;
