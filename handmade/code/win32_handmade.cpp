@@ -100,8 +100,8 @@ internal void Win32PaintBufferToWindow(
         X, Y, Width, Height,
         X, Y, Width, Height,
         */
-        0, 0, Buffer.Width, Buffer.Height,
         0, 0, WindowWidth, WindowHeight,
+        0, 0, Buffer.Width, Buffer.Height,
         Buffer.Memory,
         &Buffer.Info,
         DIB_RGB_COLORS, SRCCOPY);
@@ -120,8 +120,6 @@ LRESULT CALLBACK Win32MainWindowCallback(
         case WM_SIZE:
         {
             OutputDebugStringA("WM_SIZE\n");
-            win32_window_dimension Dimension = Win32GetWindowDimension(Window);
-            Win32ResizeDIBSection(&GlobalBackbuffer, Dimension.Width, Dimension.Height);
         } break;
 
         case WM_CLOSE:
@@ -176,6 +174,8 @@ int CALLBACK WinMain(
     LPSTR     CmdLine,
     int       ShowCode)
 {
+    Win32ResizeDIBSection(&GlobalBackbuffer, 1066, 600);
+
     WNDCLASS WindowClass = {};
 
     WindowClass.style = CS_HREDRAW | CS_VREDRAW;
