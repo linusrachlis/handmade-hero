@@ -4,6 +4,7 @@
 #define internal static
 #define local_persist static
 #define global_variable static
+#define CONTROL_SPEED 5
 
 struct win32_offscreen_buffer
 {
@@ -21,8 +22,12 @@ struct win32_window_dimension
     int Height;
 };
 
-global_variable bool Running = false;
+global_variable bool GlobalRunning = false;
 global_variable win32_offscreen_buffer GlobalBackbuffer;
+global_variable bool GoingUp = false;
+global_variable bool GoingLeft = false;
+global_variable bool GoingDown = false;
+global_variable bool GoingRight = false;
 
 internal win32_window_dimension Win32GetWindowDimension(HWND Window)
 {
@@ -108,7 +113,7 @@ LRESULT CALLBACK Win32MainWindowCallback(
         case WM_CLOSE:
         {
             OutputDebugStringA("WM_CLOSE\n");
-            Running = false;
+            GlobalRunning = false;
         } break;
 
         case WM_ACTIVATEAPP:
@@ -119,7 +124,7 @@ LRESULT CALLBACK Win32MainWindowCallback(
         case WM_DESTROY:
         {
             OutputDebugStringA("WM_DESTROY\n");
-            Running = false;
+            GlobalRunning = false;
         } break;
 
         case WM_PAINT:
@@ -149,30 +154,29 @@ LRESULT CALLBACK Win32MainWindowCallback(
                 switch (VKCode)
                 {
                     case 'W':
+                    case VK_UP:
+                    {
+                        GoingUp = IsDown;
+                    } break;
                     case 'A':
+                    case VK_LEFT:
+                    {
+                        GoingLeft = IsDown;
+                    } break;
                     case 'S':
+                    case VK_DOWN:
+                    {
+                        GoingDown = IsDown;
+                    } break;
                     case 'D':
+                    case VK_RIGHT:
+                    {
+                        GoingRight = IsDown;
+                    } break;
                     case 'Q':
                     case 'E':
-                    case VK_UP:
-                    case VK_LEFT:
-                    case VK_DOWN:
-                    case VK_RIGHT:
                     case VK_ESCAPE:
-                        break;
                     case VK_SPACE:
-                    {
-                        OutputDebugStringA("SPACEBAR: ");
-                        if (IsDown)
-                        {
-                            OutputDebugStringA("IsDown");
-                        }
-                        if (WasDown)
-                        {
-                            OutputDebugStringA("WasDown");
-                        }
-                        OutputDebugStringA("\n");
-                    } break;
                     default:
                         break;
                 }
@@ -221,18 +225,18 @@ int CALLBACK WinMain(
 
         if (Window)
         {
-            Running = true;
+            GlobalRunning = true;
             int XOffset = 0;
             int YOffset = 0;
 
-            while (Running)
+            while (GlobalRunning)
             {
                 MSG Message;
                 while (PeekMessage(&Message, 0, 0, 0, PM_REMOVE))
                 {
                     if (Message.message == WM_QUIT)
                     {
-                        Running = false;
+                        GlobalRunning = false;
                     }
 
                     TranslateMessage(&Message);
@@ -249,6 +253,23 @@ int CALLBACK WinMain(
 
                 XOffset++;
                 YOffset++;
+
+                if (GoingUp)
+                {
+                    YOffset -= CONTROL_SPEED;
+                }
+                if (GoingDown)
+                {
+                    YOffset += CONTROL_SPEED;
+                }
+                if (GoingLeft)
+                {
+                    XOffset -= CONTROL_SPEED;
+                }
+                if (GoingRight)
+                {
+                    XOffset += CONTROL_SPEED;
+                }
             }
         } else {
             // TODO logging
