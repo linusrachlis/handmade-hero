@@ -134,6 +134,53 @@ LRESULT CALLBACK Win32MainWindowCallback(
             EndPaint(Window, &Paint);
         } break;
 
+        // TODO Capturing SYSKEY* messages and then not calling DefWindowProc has the effect
+        // of disabling shortcuts like Alt-F4 to close the window. Maybe this is what we want?
+        // For now, just following Casey.
+        case WM_SYSKEYDOWN:
+        case WM_SYSKEYUP:
+        case WM_KEYDOWN:
+        case WM_KEYUP:
+        {
+            uint32_t VKCode = WParam;
+            bool WasDown = ((LParam & (1 << 30)) != 0);
+            bool IsDown = ((LParam & (1 << 31)) == 0);
+
+            if (WasDown != IsDown)
+            {
+                switch (VKCode)
+                {
+                    case 'W':
+                    case 'A':
+                    case 'S':
+                    case 'D':
+                    case 'Q':
+                    case 'E':
+                    case VK_UP:
+                    case VK_LEFT:
+                    case VK_DOWN:
+                    case VK_RIGHT:
+                    case VK_ESCAPE:
+                        break;
+                    case VK_SPACE:
+                    {
+                        OutputDebugStringA("SPACEBAR: ");
+                        if (IsDown)
+                        {
+                            OutputDebugStringA("IsDown");
+                        }
+                        if (WasDown)
+                        {
+                            OutputDebugStringA("WasDown");
+                        }
+                        OutputDebugStringA("\n");
+                    } break;
+                    default:
+                        break;
+                }
+            }
+        } break;
+
         default:
         {
             Result = DefWindowProc(Window, Message, WParam, LParam);
