@@ -41,9 +41,12 @@ internal win32_window_dimension Win32GetWindowDimension(HWND Window)
     return(Result);
 }
 
-internal void RenderWeirdGradient(win32_offscreen_buffer *Buffer, int BlueOffset, int GreenOffset)
+internal void RenderWeirdGradient(
+    win32_offscreen_buffer *Buffer,
+    int XOffset, int YOffset)
 {
-    // Note: Row is a 1-byte because we use the Pitch to advance it, and Pitch is a number of bytes.
+    // Note: Row has to be a 1-byte pointer because we use the Pitch to advance it, and
+    // Pitch is a number of bytes.
     uint8_t *Row = (uint8_t *)Buffer->Memory;
 
     for (int Y = 0; Y < Buffer->Height; Y++)
