@@ -1,5 +1,6 @@
 #include <windows.h>
 #include <stdint.h>
+#include <math.h>
 
 #define internal static
 #define local_persist static
@@ -55,10 +56,15 @@ internal void RenderWeirdGradient(
 
         for (int X = 0; X < Buffer->Width; X++)
         {
-            uint8_t Green = (Y + GreenOffset);
-            uint8_t Blue = (X + BlueOffset);
+            int CurrentXOffset = (X + XOffset);
+            int CurrentYOffset = (Y + YOffset);
+            float SumOfTheSquares = (float)((CurrentXOffset*CurrentXOffset) + (CurrentYOffset*CurrentYOffset));
+
+            uint8_t Red = (uint8_t)((int)sqrt(SumOfTheSquares) >> 1);
+            uint8_t Green = CurrentYOffset;
+            uint8_t Blue = CurrentXOffset;
             // Pixel structure in register: xx RR GG BB
-            *Pixel = (Green << 8) | Blue;
+            *Pixel = (Red << 16) | (Green << 8) | Blue;
             // Advance to write next pixel
             Pixel++;
         }
