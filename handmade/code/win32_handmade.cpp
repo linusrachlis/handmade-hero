@@ -58,9 +58,17 @@ internal void RenderWeirdGradient(
         {
             int CurrentXOffset = (X + XOffset);
             int CurrentYOffset = (Y + YOffset);
-            float SumOfTheSquares = (float)((CurrentXOffset*CurrentXOffset) + (CurrentYOffset*CurrentYOffset));
+            uint8_t Red;
+            if (Y % 10 < 5)
+            {
+                float SumOfTheSquares = (float)((CurrentXOffset*CurrentXOffset) + (CurrentYOffset*CurrentYOffset));
+                Red = (uint8_t)((int)sqrt(SumOfTheSquares) >> 1);
+            }
+            else
+            {
+                Red = 0;
+            }
 
-            uint8_t Red = (uint8_t)((int)sqrt(SumOfTheSquares) >> 1);
             uint8_t Green = CurrentYOffset;
             uint8_t Blue = CurrentXOffset;
             // Pixel structure in register: xx RR GG BB
