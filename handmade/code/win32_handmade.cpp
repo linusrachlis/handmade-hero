@@ -55,8 +55,8 @@ internal void RenderWeirdGradient(
 
         for (int X = 0; X < Buffer->Width; X++)
         {
-            uint8_t Green = (Y + GreenOffset);
-            uint8_t Blue = (X + BlueOffset);
+            uint8_t Green = (Y + YOffset);
+            uint8_t Blue = (X + XOffset);
             // Pixel structure in register: xx RR GG BB
             *Pixel = (Green << 8) | Blue;
             // Advance to write next pixel
