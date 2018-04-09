@@ -288,6 +288,8 @@ struct win32_sound_output
     int SamplesPerCycle;
     uint32_t RunningSampleIndex;
     float tSine;
+    int LatencySampleCount;
+    int LatencyBytes;
 
     void SetToneHz(int Value)
     {
@@ -399,9 +401,11 @@ int CALLBACK WinMain(
             SoundOutput.BytesPerSample = sizeof(int16_t) * 2;
             SoundOutput.SecondaryBufferSize = SoundOutput.BytesPerSample * SoundOutput.SamplesPerSecond; // 1-second buffer
             SoundOutput.RunningSampleIndex = 0;
+            SoundOutput.LatencySampleCount = SoundOutput.SamplesPerSecond / 15;
+            SoundOutput.LatencyBytes = SoundOutput.LatencySampleCount * SoundOutput.BytesPerSample;
 
             Win32InitDSound(Window, SoundOutput.SamplesPerSecond, SoundOutput.SecondaryBufferSize);
-            Win32FillSoundBuffer(&SoundOutput, 0, SoundOutput.SecondaryBufferSize);
+            Win32FillSoundBuffer(&SoundOutput, 0, SoundOutput.LatencyBytes);
             GlobalSecondaryBuffer->Play(0, 0, DSBPLAY_LOOPING);
 
             while (GlobalRunning)
@@ -427,14 +431,16 @@ int CALLBACK WinMain(
                 {
                     DWORD ByteToLock = (SoundOutput.RunningSampleIndex * SoundOutput.BytesPerSample) % SoundOutput.SecondaryBufferSize;
                     DWORD BytesToWrite;
-                    if (ByteToLock > PlayCursor)
+                    DWORD TargetCursor = (PlayCursor + SoundOutput.LatencyBytes) % SoundOutput.SecondaryBufferSize;
+
+                    if (ByteToLock > TargetCursor)
                     {
                         BytesToWrite = SoundOutput.SecondaryBufferSize - ByteToLock;
-                        BytesToWrite += PlayCursor;
+                        BytesToWrite += TargetCursor;
                     }
                     else
                     {
-                        BytesToWrite = PlayCursor - ByteToLock;
+                        BytesToWrite = TargetCursor - ByteToLock;
                     }
 
                     Win32FillSoundBuffer(&SoundOutput, ByteToLock, BytesToWrite);
@@ -445,16 +451,23 @@ int CALLBACK WinMain(
                     Dimension.Width, Dimension.Height);
                 ReleaseDC(Window, DeviceContext);
 
-                XOffset++;
-                YOffset++;
+                // XOffset++;
+                // YOffset++;
 
                 if (GoingUp)
                 {
+                    // TODO: make cntrol speed cumulative?
+                    // TODO: prevent wraparound to 0
                     YOffset -= CONTROL_SPEED;
+                    SoundOutput.SetToneHz(SoundOutput.ToneHz + 1);
                 }
                 if (GoingDown)
                 {
                     YOffset += CONTROL_SPEED;
+                    if (SoundOutput.ToneHz > 1)
+                    {
+                        SoundOutput.SetToneHz(SoundOutput.ToneHz - 1);
+                    }
                 }
                 if (GoingLeft)
                 {
