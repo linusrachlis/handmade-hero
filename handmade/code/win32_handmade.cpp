@@ -313,8 +313,6 @@ internal void Win32FillSoundBuffer(win32_sound_output *SoundOutput, DWORD ByteTo
         &Region2, &Region2Size,
         0)))
     {
-        OutputDebugStringA("Locked buffer\n");
-
         // TODO: assert valid size for regions
 
         // Fill in region 1
@@ -350,11 +348,6 @@ internal void Win32FillSoundBuffer(win32_sound_output *SoundOutput, DWORD ByteTo
 
         GlobalSecondaryBuffer->Unlock(Region1, Region1Size, Region2, Region2Size);
     }
-    else
-    {
-        OutputDebugStringA("!!!!!!!!!!!!!!!!!!!!!!!! Failed to lock buffer\n");
-    }
-    
 }
 
 int CALLBACK WinMain(
@@ -413,8 +406,9 @@ int CALLBACK WinMain(
             Win32FillSoundBuffer(&SoundOutput, 0, SoundOutput.LatencyBytes);
             GlobalSecondaryBuffer->Play(0, 0, DSBPLAY_LOOPING);
 
-            LARGE_INTEGER StartCounter;
-            QueryPerformanceCounter(&StartCounter);
+            LARGE_INTEGER LastPerfCount;
+            QueryPerformanceCounter(&LastPerfCount);
+            uint64_t LastCycleCount = __rdtsc();
 
             while (GlobalRunning)
             {
@@ -486,18 +480,24 @@ int CALLBACK WinMain(
                     XOffset += CONTROL_SPEED;
                 }
 
+                uint64_t EndCycleCount = __rdtsc();
+                int ElapsedCycleCount = EndCycleCount - LastCycleCount;
 
-                LARGE_INTEGER EndCounter;
-                QueryPerformanceCounter(&EndCounter);
-                int64_t ElapsedCount = EndCounter.QuadPart - StartCounter.QuadPart;
-                int32_t ElapsedMilliseconds = (1000*ElapsedCount) / PerfCountPerSecond;
-                int FramesPerSecond = PerfCountPerSecond / ElapsedCount;
+                LARGE_INTEGER EndPerfCount;
+                QueryPerformanceCounter(&EndPerfCount);
+                int64_t ElapsedPerfCount = EndPerfCount.QuadPart - LastPerfCount.QuadPart;
+                int32_t ElapsedMilliseconds = (1000*ElapsedPerfCount) / PerfCountPerSecond;
+                int FramesPerSecond = PerfCountPerSecond / ElapsedPerfCount;
+                uint64_t CyclesPerSecond = ElapsedCycleCount * FramesPerSecond;
 
                 char Buffer[256];
                 sprintf(Buffer, "Elapsed MS: %d, FPS = %d\n", ElapsedMilliseconds, FramesPerSecond);
                 OutputDebugStringA(Buffer);
+                sprintf(Buffer, "Elapsed cycles: %d, per sec = %I64u\n", ElapsedCycleCount, CyclesPerSecond);
+                OutputDebugStringA(Buffer);
 
-                StartCounter = EndCounter;
+                LastPerfCount = EndPerfCount;
+                LastCycleCount = EndCycleCount;
             }
         } else {
             // TODO logging
