@@ -2,6 +2,7 @@
 #include <stdint.h>
 #include <dsound.h>
 #include <math.h>
+#include <stdio.h>
 
 #define internal static
 #define local_persist static
@@ -362,6 +363,10 @@ int CALLBACK WinMain(
     LPSTR     CmdLine,
     int       ShowCode)
 {
+    LARGE_INTEGER PerfCountPerSecondResult;
+    QueryPerformanceFrequency(&PerfCountPerSecondResult);
+    int64_t PerfCountPerSecond = PerfCountPerSecondResult.QuadPart;
+
     Win32ResizeDIBSection(&GlobalBackbuffer, 1066, 600);
 
     WNDCLASS WindowClass = {};
@@ -407,6 +412,9 @@ int CALLBACK WinMain(
             Win32InitDSound(Window, SoundOutput.SamplesPerSecond, SoundOutput.SecondaryBufferSize);
             Win32FillSoundBuffer(&SoundOutput, 0, SoundOutput.LatencyBytes);
             GlobalSecondaryBuffer->Play(0, 0, DSBPLAY_LOOPING);
+
+            LARGE_INTEGER StartCounter;
+            QueryPerformanceCounter(&StartCounter);
 
             while (GlobalRunning)
             {
@@ -477,6 +485,19 @@ int CALLBACK WinMain(
                 {
                     XOffset += CONTROL_SPEED;
                 }
+
+
+                LARGE_INTEGER EndCounter;
+                QueryPerformanceCounter(&EndCounter);
+                int64_t ElapsedCount = EndCounter.QuadPart - StartCounter.QuadPart;
+                int32_t ElapsedMilliseconds = (1000*ElapsedCount) / PerfCountPerSecond;
+                int FramesPerSecond = PerfCountPerSecond / ElapsedCount;
+
+                char Buffer[256];
+                sprintf(Buffer, "Elapsed MS: %d, FPS = %d\n", ElapsedMilliseconds, FramesPerSecond);
+                OutputDebugStringA(Buffer);
+
+                StartCounter = EndCounter;
             }
         } else {
             // TODO logging
