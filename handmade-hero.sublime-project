@@ -11,6 +11,12 @@
 			"shell_cmd": "\"C:/Program Files (x86)/Microsoft Visual Studio/2017/Community/Common7/Tools/VsDevCmd.bat\" -no_logo & D: & cd \"D:/dev/handmade-hero/handmade/code/\" & \"build.bat\"",
 			"file_regex": "^(.+?)\\((\\d+)\\):",
 			"selector": "source.c, source.cpp, source.c++"
+		},
+		{
+			"name": "Build Handmade Hero - FAST",
+			"shell_cmd": "D: & cd \"D:/dev/handmade-hero/handmade/code/\" & \"build.bat\"",
+			"file_regex": "^(.+?)\\((\\d+)\\):",
+			"selector": "source.c, source.cpp, source.c++"
 		}
 	]
 }
