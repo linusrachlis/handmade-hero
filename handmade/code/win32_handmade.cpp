@@ -1,8 +1,4 @@
-#include <windows.h>
 #include <stdint.h>
-#include <dsound.h>
-#include <math.h>
-#include <stdio.h>
 
 #define internal static
 #define local_persist static
@@ -11,6 +7,11 @@
 #define Pi32 3.1415926535897932384626433832795f
 
 #include "handmade.cpp"
+
+#include <windows.h>
+#include <dsound.h>
+#include <math.h>
+#include <stdio.h>
 
 typedef HRESULT WINAPI dsound_create_func(LPCGUID pcGuidDevice, LPDIRECTSOUND *ppDS, LPUNKNOWN pUnkOuter);
 
