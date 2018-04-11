@@ -10,6 +10,8 @@
 #define CONTROL_SPEED 5
 #define Pi32 3.1415926535897932384626433832795f
 
+#include "handmade.cpp"
+
 typedef HRESULT WINAPI dsound_create_func(LPCGUID pcGuidDevice, LPDIRECTSOUND *ppDS, LPUNKNOWN pUnkOuter);
 
 struct win32_offscreen_buffer
@@ -46,33 +48,6 @@ internal win32_window_dimension Win32GetWindowDimension(HWND Window)
     Result.Height = ClientRect.bottom - ClientRect.top;
 
     return(Result);
-}
-
-internal void RenderWeirdGradient(
-    win32_offscreen_buffer *Buffer,
-    int XOffset, int YOffset)
-{
-    // Note: Row has to be a 1-byte pointer because we use the Pitch to advance it, and
-    // Pitch is a number of bytes.
-    uint8_t *Row = (uint8_t *)Buffer->Memory;
-
-    for (int Y = 0; Y < Buffer->Height; Y++)
-    {
-        uint32_t *Pixel = (uint32_t *)Row;
-
-        for (int X = 0; X < Buffer->Width; X++)
-        {
-            uint8_t Green = (Y + YOffset);
-            uint8_t Blue = (X + XOffset);
-            // Pixel structure in register: xx RR GG BB
-            *Pixel = (Green << 8) | Blue;
-            // Advance to write next pixel
-            Pixel++;
-        }
-
-        // Advance row pointer by number of bytes per row
-        Row += Buffer->Pitch;
-    }
 }
 
 internal void Win32ResizeDIBSection(win32_offscreen_buffer *Buffer, int Width, int Height)
@@ -424,9 +399,15 @@ int CALLBACK WinMain(
                     DispatchMessage(&Message);
                 }
 
-                HDC DeviceContext = GetDC(Window);
-                win32_window_dimension Dimension = Win32GetWindowDimension(Window);
-                RenderWeirdGradient(&GlobalBackbuffer, XOffset, YOffset);
+                // Call platform-independent code to render weird gradient now
+                // (or whatever it wants to render!)
+                game_offscreen_buffer GameBuffer = {};
+                GameBuffer.Memory = GlobalBackbuffer.Memory;
+                GameBuffer.Width = GlobalBackbuffer.Width;
+                GameBuffer.Height = GlobalBackbuffer.Height;
+                GameBuffer.BytesPerPixel = GlobalBackbuffer.BytesPerPixel;
+                GameBuffer.Pitch = GlobalBackbuffer.Pitch;
+                GameUpdateAndRender(&GameBuffer, XOffset, YOffset);
 
                 DWORD PlayCursor;
                 if (SUCCEEDED(GlobalSecondaryBuffer->GetCurrentPosition(&PlayCursor, 0)))
@@ -448,13 +429,12 @@ int CALLBACK WinMain(
                     Win32FillSoundBuffer(&SoundOutput, ByteToLock, BytesToWrite);
                 }
 
+                HDC DeviceContext = GetDC(Window);
+                win32_window_dimension Dimension = Win32GetWindowDimension(Window);
                 Win32PaintBufferToWindow(
                     &GlobalBackbuffer, DeviceContext,
                     Dimension.Width, Dimension.Height);
                 ReleaseDC(Window, DeviceContext);
-
-                // XOffset++;
-                // YOffset++;
 
                 if (GoingUp)
                 {
