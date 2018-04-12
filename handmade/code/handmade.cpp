@@ -19,7 +19,7 @@ struct box
     int Left;
     int Width;
     int Height;
-    int Velocity;
+    velocity Velocity;
 
     int Bottom()
     {
@@ -42,9 +42,10 @@ void GameSetup()
 {
     Box.Top = 100;
     Box.Left = 100;
-    Box.Width = 150;
-    Box.Height = 200;
-    Box.Velocity = 1;
+    Box.Width = 50;
+    Box.Height = 50;
+    Box.Velocity.X = 1;
+    Box.Velocity.Y = 1;
 }
 
 internal void
@@ -54,29 +55,55 @@ GameUpdateAndRender(game_offscreen_buffer *Buffer)
     // NOTE: Update
     //
 
-    if (Box.Velocity > 0) {
-        // Going down
-        if ((Buffer->Height - Box.Bottom()) < Box.Velocity)
+    if (Box.Velocity.X > 0) {
+        // Going right
+        if ((Buffer->Width - Box.Right()) < Box.Velocity.X)
         {
             // Bounce
-            Box.Velocity *= -1;
+            Box.Velocity.X *= -1;
         }
         else
         {
-            Box.Top += Box.Velocity;
+            Box.Left += Box.Velocity.X;
         }
     }
-    else if (Box.Velocity < 0)
+    else if (Box.Velocity.X < 0)
     {
-        // Going up
-        if (Box.Top < -Box.Velocity)
+        // Going left
+        if (Box.Left < -Box.Velocity.X)
         {
             // Bounce
-            Box.Velocity *= -1;
+            Box.Velocity.X *= -1;
         }
         else
         {
-            Box.Top += Box.Velocity;
+            Box.Left += Box.Velocity.X;
+        }
+    }
+
+    if (Box.Velocity.Y > 0) {
+        // Going down
+        if ((Buffer->Height - Box.Bottom()) < Box.Velocity.Y)
+        {
+            // Bounce
+            Box.Velocity.Y *= -1;
+        }
+        else
+        {
+            Box.Top += Box.Velocity.Y;
+        }
+    }
+    else if (Box.Velocity.Y < 0)
+    {
+        // Going up
+        if (Box.Top < -Box.Velocity.Y)
+        {
+            // Bounce
+            Box.Velocity.Y *= -1;
+        }
+        else
+        {
+            Box.Top += Box.Velocity.Y;
         }
     }
 
