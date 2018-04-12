@@ -259,11 +259,13 @@ int CALLBACK WinMain(
     LPSTR     CmdLine,
     int       ShowCode)
 {
-    LARGE_INTEGER PerfCountPerSecondResult;
-    QueryPerformanceFrequency(&PerfCountPerSecondResult);
-    int64_t PerfCountPerSecond = PerfCountPerSecondResult.QuadPart;
+    // LARGE_INTEGER PerfCountPerSecondResult;
+    // QueryPerformanceFrequency(&PerfCountPerSecondResult);
+    // int64_t PerfCountPerSecond = PerfCountPerSecondResult.QuadPart;
 
-    Win32ResizeDIBSection(&GlobalBackbuffer, 1066, 600);
+    const int RenderWidth = 1066;
+    const int RenderHeight = 600;
+    Win32ResizeDIBSection(&GlobalBackbuffer, RenderWidth, RenderHeight);
 
     WNDCLASS WindowClass = {};
 
@@ -292,7 +294,7 @@ int CALLBACK WinMain(
         {
             GlobalRunning = true;
 
-            GameSetup();
+            GameSetup(RenderWidth, RenderHeight);
 
             // Win32InitDSound(Window, SoundOutput.SamplesPerSecond, SoundOutput.SecondaryBufferSize);
             // Win32FillSoundBuffer(&SoundOutput, 0, SoundOutput.LatencyBytes);
