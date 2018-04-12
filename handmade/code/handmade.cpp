@@ -1,6 +1,7 @@
 /*
 TODO
-- controls
+- tune padding/puck speed to balance difficulty
+- paddle shouldn't be able to leave the screen
 - paddle hit angling
 - AI?
 */
@@ -12,6 +13,12 @@ struct game_offscreen_buffer
     int Height;
     int BytesPerPixel;
     int Pitch;
+};
+
+struct game_input
+{
+    bool MovingUp;
+    bool MovingDown;
 };
 
 struct box
@@ -47,6 +54,7 @@ struct puck
 global_variable int GameWidth;
 global_variable int GameHeight;
 global_variable bool Victory = false;
+global_variable const int PaddleSpeed = 3;
 
 // Pixel structure in register: xx RR GG BB
 global_variable const uint32_t White = (255 << 16) | (255 << 8) | 255;
@@ -68,8 +76,8 @@ internal void GameSetup(int Width, int Height)
     Puck.Box.Left = 100;
     Puck.Box.Width = 50;
     Puck.Box.Height = 50;
-    Puck.Velocity.X = 5;
-    Puck.Velocity.Y = 5;
+    Puck.Velocity.X = 3;
+    Puck.Velocity.Y = 3;
 
     LeftPaddle.Top = 0;
     LeftPaddle.Left = 0;
@@ -88,7 +96,10 @@ internal void GameSetup(int Width, int Height)
 }
 
 internal void
-GameUpdateAndRender(game_offscreen_buffer *Buffer)
+GameUpdateAndRender(
+    game_offscreen_buffer *Buffer,
+    game_input LeftInput,
+    game_input RightInput)
 {
     //
     // NOTE: Update game state, unless victory has been achieved.
@@ -96,6 +107,26 @@ GameUpdateAndRender(game_offscreen_buffer *Buffer)
 
     if (!Victory)
     {
+        if (LeftInput.MovingUp)
+        {
+            LeftPaddle.Top -= PaddleSpeed;
+        }
+
+        if (LeftInput.MovingDown)
+        {
+            LeftPaddle.Top += PaddleSpeed;
+        }
+
+        if (RightInput.MovingUp)
+        {
+            RightPaddle.Top -= PaddleSpeed;
+        }
+
+        if (RightInput.MovingDown)
+        {
+            RightPaddle.Top += PaddleSpeed;
+        }
+
         // X collision detection is only about paddles, and interacts with
         // victory conditions.
         if (Puck.Velocity.X > 0) {

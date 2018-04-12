@@ -31,11 +31,12 @@ struct win32_window_dimension
 
 global_variable bool GlobalRunning = false;
 global_variable win32_offscreen_buffer GlobalBackbuffer;
-global_variable bool GoingUp = false;
-global_variable bool GoingLeft = false;
-global_variable bool GoingDown = false;
-global_variable bool GoingRight = false;
 global_variable LPDIRECTSOUNDBUFFER GlobalSecondaryBuffer;
+
+// TODO: think about whether this is going against the philosophy of game/platform separation.
+// (It's all academic anyway, but learning is the point)
+global_variable game_input LeftInput = {};
+global_variable game_input RightInput = {};
 
 internal win32_window_dimension Win32GetWindowDimension(HWND Window)
 {
@@ -137,30 +138,31 @@ LRESULT CALLBACK Win32MainWindowCallback(
             {
                 switch (VKCode)
                 {
-                    case 'W':
-                    case VK_UP:
+                    /*
+                    Controls:
+                        Left Player: Q = up, A = down
+                        Right Player: P = up, L = down
+                    */
+                    case 'Q':
                     {
-                        GoingUp = IsDown;
+                        LeftInput.MovingUp = IsDown;
                     } break;
                     case 'A':
-                    case VK_LEFT:
                     {
-                        GoingLeft = IsDown;
+                        LeftInput.MovingDown = IsDown;
                     } break;
-                    case 'S':
-                    case VK_DOWN:
+                    case 'P':
                     {
-                        GoingDown = IsDown;
+                        RightInput.MovingUp = IsDown;
                     } break;
-                    case 'D':
-                    case VK_RIGHT:
+                    case 'L':
                     {
-                        GoingRight = IsDown;
+                        RightInput.MovingDown = IsDown;
                     } break;
-                    case 'Q':
-                    case 'E':
-                    case VK_ESCAPE:
-                    case VK_SPACE:
+                    // case 'Q':
+                    // case 'E':
+                    // case VK_ESCAPE:
+                    // case VK_SPACE:
                     default:
                         break;
                 }
@@ -327,7 +329,7 @@ int CALLBACK WinMain(
                 GameBuffer.Height = GlobalBackbuffer.Height;
                 GameBuffer.BytesPerPixel = GlobalBackbuffer.BytesPerPixel;
                 GameBuffer.Pitch = GlobalBackbuffer.Pitch;
-                GameUpdateAndRender(&GameBuffer);
+                GameUpdateAndRender(&GameBuffer, LeftInput, RightInput);
 
                 // DWORD PlayCursor;
                 // if (SUCCEEDED(GlobalSecondaryBuffer->GetCurrentPosition(&PlayCursor, 0)))
