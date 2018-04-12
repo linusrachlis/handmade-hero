@@ -3,7 +3,6 @@
 #define internal static
 #define local_persist static
 #define global_variable static
-#define CONTROL_SPEED 5
 
 #include "handmade.cpp"
 
@@ -292,6 +291,8 @@ int CALLBACK WinMain(
         if (Window)
         {
             GlobalRunning = true;
+
+            GameSetup();
 
             // Win32InitDSound(Window, SoundOutput.SamplesPerSecond, SoundOutput.SecondaryBufferSize);
             // Win32FillSoundBuffer(&SoundOutput, 0, SoundOutput.LatencyBytes);
