@@ -1,8 +1,12 @@
 /*
 TODO
-- tune padding/puck speed to balance difficulty
 - paddle shouldn't be able to leave the screen
+- sound effects
 - paddle hit angling
+- bug: paddle hit still counts if puck is past the edge of the paddle, as long as
+  the paddle _touches_ the puck before the puck touches the edge of the screen.
+  more realistic would be that the puck just bounces off the end of the paddle
+  before reaching the screen edge.
 - AI?
 */
 
@@ -54,7 +58,8 @@ struct puck
 global_variable int GameWidth;
 global_variable int GameHeight;
 global_variable bool Victory = false;
-global_variable const int PaddleSpeed = 3;
+global_variable const int PaddleSpeed = 2;
+global_variable const int PuckSpeed = 4;
 
 // Pixel structure in register: xx RR GG BB
 global_variable const uint32_t White = (255 << 16) | (255 << 8) | 255;
@@ -76,17 +81,17 @@ internal void GameSetup(int Width, int Height)
     Puck.Box.Left = 100;
     Puck.Box.Width = 50;
     Puck.Box.Height = 50;
-    Puck.Velocity.X = 3;
-    Puck.Velocity.Y = 3;
+    Puck.Velocity.X = PuckSpeed;
+    Puck.Velocity.Y = PuckSpeed;
 
     LeftPaddle.Top = 0;
     LeftPaddle.Left = 0;
     LeftPaddle.Width = 50;
-    LeftPaddle.Height = 200;
+    LeftPaddle.Height = 150;
 
     RightPaddle.Top = 0;
     RightPaddle.Width = 50;
-    RightPaddle.Height = 200;
+    RightPaddle.Height = 150;
     RightPaddle.Left = GameWidth - RightPaddle.Width;
 
     // Register boxes for the renderer
