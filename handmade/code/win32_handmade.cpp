@@ -4,7 +4,6 @@
 #define local_persist static
 #define global_variable static
 #define CONTROL_SPEED 5
-#define Pi32 3.1415926535897932384626433832795f
 
 #include "handmade.cpp"
 
@@ -255,77 +254,6 @@ void Win32InitDSound(HWND Window, int32_t SamplesPerSecond, int32_t BufferSize)
     }
 }
 
-struct win32_sound_output
-{
-    int SamplesPerSecond;
-    int ToneHz;
-    int16_t ToneAmplitude;
-    int BytesPerSample;
-    int SecondaryBufferSize;
-    int SamplesPerCycle;
-    uint32_t RunningSampleIndex;
-    float tSine;
-    int LatencySampleCount;
-    int LatencyBytes;
-
-    void SetToneHz(int Value)
-    {
-        // TODO: assert samplespersecond initialized?
-        ToneHz = Value;
-        SamplesPerCycle = SamplesPerSecond / ToneHz;
-    }
-};
-
-internal void Win32FillSoundBuffer(win32_sound_output *SoundOutput, DWORD ByteToLock, DWORD BytesToWrite)
-{
-    VOID *Region1;
-    DWORD Region1Size;
-    VOID *Region2;
-    DWORD Region2Size;
-
-    if (SUCCEEDED(GlobalSecondaryBuffer->Lock(
-        ByteToLock, BytesToWrite,
-        &Region1, &Region1Size,
-        &Region2, &Region2Size,
-        0)))
-    {
-        // TODO: assert valid size for regions
-
-        // Fill in region 1
-        DWORD Region1SampleCount = Region1Size / SoundOutput->BytesPerSample;
-        int16_t *SampleOut = (int16_t *)Region1;
-        for (DWORD SampleIndex = 0; SampleIndex < Region1SampleCount; SampleIndex++)
-        {
-            SoundOutput->tSine += (2.0f * Pi32) / SoundOutput->SamplesPerCycle;
-            int16_t SampleValue = (int16_t)(sinf(SoundOutput->tSine) * SoundOutput->ToneAmplitude);
-
-            *SampleOut = SampleValue;
-            SampleOut++;
-            *SampleOut = SampleValue;
-            SampleOut++;
-
-            SoundOutput->RunningSampleIndex++;
-        }
-        // Fill in region 2 of buffer
-        DWORD Region2SampleCount = Region2Size / SoundOutput->BytesPerSample;
-        SampleOut = (int16_t *)Region2;
-        for (DWORD SampleIndex = 0; SampleIndex < Region2SampleCount; SampleIndex++)
-        {
-            SoundOutput->tSine += (2.0f * Pi32) / SoundOutput->SamplesPerCycle;
-            int16_t SampleValue = (int16_t)(sinf(SoundOutput->tSine) * SoundOutput->ToneAmplitude);
-
-            *SampleOut = SampleValue;
-            SampleOut++;
-            *SampleOut = SampleValue;
-            SampleOut++;
-
-            SoundOutput->RunningSampleIndex++;
-        }
-
-        GlobalSecondaryBuffer->Unlock(Region1, Region1Size, Region2, Region2Size);
-    }
-}
-
 int CALLBACK WinMain(
     HINSTANCE Instance,
     HINSTANCE PrevInstance,
@@ -364,27 +292,14 @@ int CALLBACK WinMain(
         if (Window)
         {
             GlobalRunning = true;
-            int XOffset = 0;
-            int YOffset = 0;
 
-            // Sound test
-            win32_sound_output SoundOutput = {};
-            SoundOutput.SamplesPerSecond = 48000;
-            SoundOutput.SetToneHz(256);
-            SoundOutput.ToneAmplitude = 3000; // Max is ~32K (2^16), but we don't want to go deaf
-            SoundOutput.BytesPerSample = sizeof(int16_t) * 2;
-            SoundOutput.SecondaryBufferSize = SoundOutput.BytesPerSample * SoundOutput.SamplesPerSecond; // 1-second buffer
-            SoundOutput.RunningSampleIndex = 0;
-            SoundOutput.LatencySampleCount = SoundOutput.SamplesPerSecond / 15;
-            SoundOutput.LatencyBytes = SoundOutput.LatencySampleCount * SoundOutput.BytesPerSample;
+            // Win32InitDSound(Window, SoundOutput.SamplesPerSecond, SoundOutput.SecondaryBufferSize);
+            // Win32FillSoundBuffer(&SoundOutput, 0, SoundOutput.LatencyBytes);
+            // GlobalSecondaryBuffer->Play(0, 0, DSBPLAY_LOOPING);
 
-            Win32InitDSound(Window, SoundOutput.SamplesPerSecond, SoundOutput.SecondaryBufferSize);
-            Win32FillSoundBuffer(&SoundOutput, 0, SoundOutput.LatencyBytes);
-            GlobalSecondaryBuffer->Play(0, 0, DSBPLAY_LOOPING);
-
-            LARGE_INTEGER LastPerfCount;
-            QueryPerformanceCounter(&LastPerfCount);
-            uint64_t LastCycleCount = __rdtsc();
+            // LARGE_INTEGER LastPerfCount;
+            // QueryPerformanceCounter(&LastPerfCount);
+            // uint64_t LastCycleCount = __rdtsc();
 
             while (GlobalRunning)
             {
@@ -402,33 +317,34 @@ int CALLBACK WinMain(
 
                 // Call platform-independent code to render weird gradient now
                 // (or whatever it wants to render!)
+                // TODO: check vars set by key input events and pass data to game layer.
                 game_offscreen_buffer GameBuffer = {};
                 GameBuffer.Memory = GlobalBackbuffer.Memory;
                 GameBuffer.Width = GlobalBackbuffer.Width;
                 GameBuffer.Height = GlobalBackbuffer.Height;
                 GameBuffer.BytesPerPixel = GlobalBackbuffer.BytesPerPixel;
                 GameBuffer.Pitch = GlobalBackbuffer.Pitch;
-                GameUpdateAndRender(&GameBuffer, XOffset, YOffset);
+                GameUpdateAndRender(&GameBuffer);
 
-                DWORD PlayCursor;
-                if (SUCCEEDED(GlobalSecondaryBuffer->GetCurrentPosition(&PlayCursor, 0)))
-                {
-                    DWORD ByteToLock = (SoundOutput.RunningSampleIndex * SoundOutput.BytesPerSample) % SoundOutput.SecondaryBufferSize;
-                    DWORD BytesToWrite;
-                    DWORD TargetCursor = (PlayCursor + SoundOutput.LatencyBytes) % SoundOutput.SecondaryBufferSize;
+                // DWORD PlayCursor;
+                // if (SUCCEEDED(GlobalSecondaryBuffer->GetCurrentPosition(&PlayCursor, 0)))
+                // {
+                //     DWORD ByteToLock = (SoundOutput.RunningSampleIndex * SoundOutput.BytesPerSample) % SoundOutput.SecondaryBufferSize;
+                //     DWORD BytesToWrite;
+                //     DWORD TargetCursor = (PlayCursor + SoundOutput.LatencyBytes) % SoundOutput.SecondaryBufferSize;
 
-                    if (ByteToLock > TargetCursor)
-                    {
-                        BytesToWrite = SoundOutput.SecondaryBufferSize - ByteToLock;
-                        BytesToWrite += TargetCursor;
-                    }
-                    else
-                    {
-                        BytesToWrite = TargetCursor - ByteToLock;
-                    }
+                //     if (ByteToLock > TargetCursor)
+                //     {
+                //         BytesToWrite = SoundOutput.SecondaryBufferSize - ByteToLock;
+                //         BytesToWrite += TargetCursor;
+                //     }
+                //     else
+                //     {
+                //         BytesToWrite = TargetCursor - ByteToLock;
+                //     }
 
-                    Win32FillSoundBuffer(&SoundOutput, ByteToLock, BytesToWrite);
-                }
+                //     Win32FillSoundBuffer(&SoundOutput, ByteToLock, BytesToWrite);
+                // }
 
                 HDC DeviceContext = GetDC(Window);
                 win32_window_dimension Dimension = Win32GetWindowDimension(Window);
@@ -437,48 +353,24 @@ int CALLBACK WinMain(
                     Dimension.Width, Dimension.Height);
                 ReleaseDC(Window, DeviceContext);
 
-                if (GoingUp)
-                {
-                    // TODO: make cntrol speed cumulative?
-                    // TODO: prevent wraparound to 0
-                    YOffset -= CONTROL_SPEED;
-                    SoundOutput.SetToneHz(SoundOutput.ToneHz + 1);
-                }
-                if (GoingDown)
-                {
-                    YOffset += CONTROL_SPEED;
-                    if (SoundOutput.ToneHz > 1)
-                    {
-                        SoundOutput.SetToneHz(SoundOutput.ToneHz - 1);
-                    }
-                }
-                if (GoingLeft)
-                {
-                    XOffset -= CONTROL_SPEED;
-                }
-                if (GoingRight)
-                {
-                    XOffset += CONTROL_SPEED;
-                }
+                // uint64_t EndCycleCount = __rdtsc();
+                // int ElapsedCycleCount = EndCycleCount - LastCycleCount;
 
-                uint64_t EndCycleCount = __rdtsc();
-                int ElapsedCycleCount = EndCycleCount - LastCycleCount;
+                // LARGE_INTEGER EndPerfCount;
+                // QueryPerformanceCounter(&EndPerfCount);
+                // int64_t ElapsedPerfCount = EndPerfCount.QuadPart - LastPerfCount.QuadPart;
+                // int32_t ElapsedMilliseconds = (1000*ElapsedPerfCount) / PerfCountPerSecond;
+                // int FramesPerSecond = PerfCountPerSecond / ElapsedPerfCount;
+                // uint64_t CyclesPerSecond = ElapsedCycleCount * FramesPerSecond;
 
-                LARGE_INTEGER EndPerfCount;
-                QueryPerformanceCounter(&EndPerfCount);
-                int64_t ElapsedPerfCount = EndPerfCount.QuadPart - LastPerfCount.QuadPart;
-                int32_t ElapsedMilliseconds = (1000*ElapsedPerfCount) / PerfCountPerSecond;
-                int FramesPerSecond = PerfCountPerSecond / ElapsedPerfCount;
-                uint64_t CyclesPerSecond = ElapsedCycleCount * FramesPerSecond;
+                // char Buffer[256];
+                // sprintf(Buffer, "Elapsed MS: %d, FPS = %d\n", ElapsedMilliseconds, FramesPerSecond);
+                // OutputDebugStringA(Buffer);
+                // sprintf(Buffer, "Elapsed cycles: %d, per sec = %I64u\n", ElapsedCycleCount, CyclesPerSecond);
+                // OutputDebugStringA(Buffer);
 
-                char Buffer[256];
-                sprintf(Buffer, "Elapsed MS: %d, FPS = %d\n", ElapsedMilliseconds, FramesPerSecond);
-                OutputDebugStringA(Buffer);
-                sprintf(Buffer, "Elapsed cycles: %d, per sec = %I64u\n", ElapsedCycleCount, CyclesPerSecond);
-                OutputDebugStringA(Buffer);
-
-                LastPerfCount = EndPerfCount;
-                LastCycleCount = EndCycleCount;
+                // LastPerfCount = EndPerfCount;
+                // LastCycleCount = EndCycleCount;
             }
         } else {
             // TODO logging

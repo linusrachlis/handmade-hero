@@ -27,7 +27,7 @@ RenderWeirdGradient(game_offscreen_buffer *Buffer, int XOffset, int YOffset)
 }
 
 internal void
-GameUpdateAndRender(game_offscreen_buffer *Buffer, int XOffset, int YOffset)
+GameUpdateAndRender(game_offscreen_buffer *Buffer)
 {
-    RenderWeirdGradient(Buffer, XOffset, YOffset);
+    RenderWeirdGradient(Buffer, 0, 0);
 }
