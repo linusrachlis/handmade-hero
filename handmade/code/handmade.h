@@ -17,17 +17,25 @@ struct game_offscreen_buffer
     int Pitch;
 };
 
+struct game_sound_output
+{
+    int16_t *Buffer;
+    int SampleCount;
+    int SamplesPerSecond;
+};
+
 /*
 TODO: ultimately, this proc needs 4 things from the platform layer:
 - user input
 - graphics buffer to fill
 - sound buffer to fill
 - timing information
-
-For now it's just handling the graphics part.
 */
 internal void
-GameUpdateAndRender(game_offscreen_buffer *Buffer, int XOffset, int YOffset);
+GameUpdateAndRender(
+    game_offscreen_buffer *Buffer,
+    int XOffset, int YOffset,
+    game_sound_output *SoundOutput);
 
 #define HANDMADE_H
 #endif

@@ -27,7 +27,33 @@ RenderWeirdGradient(game_offscreen_buffer *Buffer, int XOffset, int YOffset)
 }
 
 internal void
-GameUpdateAndRender(game_offscreen_buffer *Buffer, int XOffset, int YOffset)
+GameFillSoundBuffer(game_sound_output *SoundOutput)
 {
-    RenderWeirdGradient(Buffer, XOffset, YOffset);
+    local_persist float tSine = 0;
+    int ToneHz = 256;
+    int ToneAmplitude = 3000;
+    int SamplesPerCycle = SoundOutput->SamplesPerSecond / ToneHz;
+
+    int16_t *SampleOut = (int16_t *)SoundOutput->Buffer;
+    for (int SampleIndex = 0; SampleIndex < SoundOutput->SampleCount; SampleIndex++)
+    {
+        int16_t SampleValue = (int16_t)(sinf(tSine) * ToneAmplitude);
+
+        *SampleOut = SampleValue;
+        SampleOut++;
+        *SampleOut = SampleValue;
+        SampleOut++;
+
+        tSine += (2.0f * Pi32) / SamplesPerCycle;
+    }
+}
+
+internal void
+GameUpdateAndRender(
+    game_offscreen_buffer *GraphicsBuffer,
+    int XOffset, int YOffset,
+    game_sound_output *SoundOutput)
+{
+    GameFillSoundBuffer(SoundOutput);
+    RenderWeirdGradient(GraphicsBuffer, XOffset, YOffset);
 }

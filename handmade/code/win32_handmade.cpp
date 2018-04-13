@@ -1,4 +1,5 @@
 #include <stdint.h>
+#include <math.h>
 
 #define internal static
 #define local_persist static
@@ -10,7 +11,6 @@
 
 #include <windows.h>
 #include <dsound.h>
-#include <math.h>
 #include <stdio.h>
 
 typedef HRESULT WINAPI dsound_create_func(LPCGUID pcGuidDevice, LPDIRECTSOUND *ppDS, LPUNKNOWN pUnkOuter);
@@ -276,7 +276,8 @@ struct win32_sound_output
     }
 };
 
-internal void Win32FillSoundBuffer(win32_sound_output *SoundOutput, DWORD ByteToLock, DWORD BytesToWrite)
+internal void
+Win32FillSoundBuffer(win32_sound_output *SoundOutput, DWORD ByteToLock, DWORD BytesToWrite)
 {
     VOID *Region1;
     DWORD Region1Size;
@@ -400,21 +401,39 @@ int CALLBACK WinMain(
                     DispatchMessage(&Message);
                 }
 
-                // Call platform-independent code to render weird gradient now
-                // (or whatever it wants to render!)
-                game_offscreen_buffer GameBuffer = {};
-                GameBuffer.Memory = GlobalBackbuffer.Memory;
-                GameBuffer.Width = GlobalBackbuffer.Width;
-                GameBuffer.Height = GlobalBackbuffer.Height;
-                GameBuffer.BytesPerPixel = GlobalBackbuffer.BytesPerPixel;
-                GameBuffer.Pitch = GlobalBackbuffer.Pitch;
-                GameUpdateAndRender(&GameBuffer, XOffset, YOffset);
+                // Prepare bucket for game's sound output
+                int TargetFramesPerSecond = 30;
+                int GameSampleCountToAskFor = (SoundOutput.SamplesPerSecond/TargetFramesPerSecond) * 2;
+                int16_t GameSoundBuffer[(48000/3) * 2];
+                game_sound_output GameSoundOutput = {};
+                GameSoundOutput.Buffer = GameSoundBuffer;
+                GameSoundOutput.SampleCount = GameSampleCountToAskFor;
+                GameSoundOutput.SamplesPerSecond = SoundOutput.SamplesPerSecond;
 
+                // Prepare bucket for game's graphics output
+                game_offscreen_buffer GameGraphicsBuffer = {};
+                GameGraphicsBuffer.Memory = GlobalBackbuffer.Memory;
+                GameGraphicsBuffer.Width = GlobalBackbuffer.Width;
+                GameGraphicsBuffer.Height = GlobalBackbuffer.Height;
+                GameGraphicsBuffer.BytesPerPixel = GlobalBackbuffer.BytesPerPixel;
+                GameGraphicsBuffer.Pitch = GlobalBackbuffer.Pitch;
+
+                // Ask game for output
+                GameUpdateAndRender(&GameGraphicsBuffer, XOffset, YOffset, &GameSoundOutput);
+
+                // Copy game's sound output to DSound buffer
                 DWORD PlayCursor;
                 if (SUCCEEDED(GlobalSecondaryBuffer->GetCurrentPosition(&PlayCursor, 0)))
                 {
                     DWORD ByteToLock = (SoundOutput.RunningSampleIndex * SoundOutput.BytesPerSample) % SoundOutput.SecondaryBufferSize;
+
+
+                    // TODO: how to know this? I guess we're just writing another 30th of a second
+                    // each time, but what if that means not leading the play cursor enough?
                     DWORD BytesToWrite;
+
+
+
                     DWORD TargetCursor = (PlayCursor + SoundOutput.LatencyBytes) % SoundOutput.SecondaryBufferSize;
 
                     if (ByteToLock > TargetCursor)
