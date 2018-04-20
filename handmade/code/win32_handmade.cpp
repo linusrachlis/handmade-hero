@@ -440,9 +440,13 @@ int CALLBACK WinMain(
                     ByteToLock = (SoundOutput.RunningSampleIndex * SoundOutput.BytesPerSample) %
                         SoundOutput.SecondaryBufferSize;
 
-                    // TODO Still a little confused about this. Doesn't it mean we will be writing PAST
-                    // the point where it's currently playing? Maybe it just doesn't catch up
-                    // because the playcursor has moved on between now and the fillsoundbuffer call.
+                    // TODO The first time through, we end up writing into the part of the buffer
+                    // that dsound specifically told us not to. We just start at the beginning of
+                    // the buffer and fill up to playcursor + latency ("targetcursor").
+                    // SUBSEQUENT times are okay, as long as targetcursor is always ahead of bytetolock.
+                    // So our latency has to be big enough to ensure this. Currently 1/15th second,
+                    // which is double the length of frame even at our lowest target FPS, so that
+                    // seems safe.
                     TargetCursor = (PlayCursor + SoundOutput.LatencyBytes) %
                         SoundOutput.SecondaryBufferSize;
                     if (ByteToLock > TargetCursor)
