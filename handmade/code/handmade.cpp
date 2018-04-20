@@ -51,8 +51,8 @@ internal void
 GameUpdateAndRender(
     game_offscreen_buffer *GraphicsBuffer,
     int XOffset, int YOffset,
-    game_sound_output *SoundOutput)
+    game_sound_output *SoundOutput, int ToneHz)
 {
-    GameFillSoundBuffer(SoundOutput, 256);
+    GameFillSoundBuffer(SoundOutput, ToneHz);
     RenderWeirdGradient(GraphicsBuffer, XOffset, YOffset);
 }

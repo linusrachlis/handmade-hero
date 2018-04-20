@@ -16,6 +16,10 @@ typedef int8_t int8;
 typedef int16_t int16;
 typedef int32_t int32;
 typedef int64_t int64;
+typedef uint8_t uint8;
+typedef uint16_t uint16;
+typedef uint32_t uint32;
+typedef uint64_t uint64;
 typedef HRESULT WINAPI dsound_create_func(LPCGUID pcGuidDevice, LPDIRECTSOUND *ppDS, LPUNKNOWN pUnkOuter);
 
 struct win32_offscreen_buffer
@@ -261,9 +265,10 @@ void Win32InitDSound(HWND Window, int32_t SamplesPerSecond, int32_t BufferSize)
 struct win32_sound_output
 {
     int SamplesPerSecond;
+    int ToneHz;
     int BytesPerSample;
     int SecondaryBufferSize;
-    uint32_t RunningSampleIndex;
+    uint32 RunningSampleIndex;
     int LatencySampleCount;
     int LatencyBytes;
 };
@@ -390,6 +395,7 @@ int CALLBACK WinMain(
             // Sound test
             win32_sound_output SoundOutput = {};
             SoundOutput.SamplesPerSecond = 48000;
+            SoundOutput.ToneHz = 256;
             SoundOutput.BytesPerSample = sizeof(int16) * 2;
             SoundOutput.SecondaryBufferSize = SoundOutput.BytesPerSample * SoundOutput.SamplesPerSecond; // 1-second buffer
             SoundOutput.RunningSampleIndex = 0;
@@ -435,7 +441,8 @@ int CALLBACK WinMain(
                         SoundOutput.SecondaryBufferSize;
 
                     // TODO Still a little confused about this. Doesn't it mean we will be writing PAST
-                    // the point where it's currently playing?
+                    // the point where it's currently playing? Maybe it just doesn't catch up
+                    // because the playcursor has moved on between now and the fillsoundbuffer call.
                     TargetCursor = (PlayCursor + SoundOutput.LatencyBytes) %
                         SoundOutput.SecondaryBufferSize;
                     if (ByteToLock > TargetCursor)
@@ -467,7 +474,10 @@ int CALLBACK WinMain(
                 GameGraphicsBuffer.Pitch = GlobalBackbuffer.Pitch;
 
                 // Ask game for output
-                GameUpdateAndRender(&GameGraphicsBuffer, XOffset, YOffset, &GameSoundOutput);
+                GameUpdateAndRender(
+                    &GameGraphicsBuffer,
+                    XOffset, YOffset,
+                    &GameSoundOutput, SoundOutput.ToneHz);
 
                 if (SoundIsValid)
                 {
@@ -487,15 +497,15 @@ int CALLBACK WinMain(
                     // TODO: make cntrol speed cumulative?
                     // TODO: prevent wraparound to 0
                     YOffset -= CONTROL_SPEED;
-                    // SoundOutput.SetToneHz(SoundOutput.ToneHz + 1);
+                    SoundOutput.ToneHz++;
                 }
                 if (GoingDown)
                 {
                     YOffset += CONTROL_SPEED;
-                    // if (SoundOutput.ToneHz > 1)
-                    // {
-                    //     SoundOutput.SetToneHz(SoundOutput.ToneHz - 1);
-                    // }
+                    if (SoundOutput.ToneHz > 1)
+                    {
+                        SoundOutput.ToneHz--;
+                    }
                 }
                 if (GoingLeft)
                 {
