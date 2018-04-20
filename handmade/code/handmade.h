@@ -1,5 +1,7 @@
 #if !defined(HANDMADE_H)
 
+#define Pi32 3.1415926535897932384626433832795f
+
 /*
 TODO: services the platform layer provides to the game
 */
@@ -20,7 +22,7 @@ struct game_offscreen_buffer
 struct game_sound_output
 {
     int16_t *Buffer;
-    int SampleCount;
+    int SampleCount; // this is the platform asking for X samples
     int SamplesPerSecond;
 };
 
