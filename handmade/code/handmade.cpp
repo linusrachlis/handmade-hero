@@ -24,6 +24,11 @@ global_variable box RightPaddle;
 global_variable const int NumBoxesToRender = 3;
 global_variable box *BoxesToRender[NumBoxesToRender];
 
+global_variable const int GlobalVictoryToneHz = 1024;
+global_variable const int GlobalWallToneHz = 256;
+global_variable const int GlobalLeftPaddleToneHz = 512;
+global_variable const int GlobalRightPaddleToneHz = 768;
+
 internal void GameSetup(int Width, int Height)
 {
     GameWidth = Width;
@@ -57,19 +62,27 @@ GameFillSoundBuffer(game_sound_output *SoundOutput, int ToneHz)
 {
     local_persist float tSine = 0;
     int ToneAmplitude = 3000;
-    int SamplesPerCycle = SoundOutput->SamplesPerSecond / ToneHz;
+    int SamplesPerCycle;
+
+    if (ToneHz)
+    {
+        SamplesPerCycle = SoundOutput->SamplesPerSecond / ToneHz;
+    }
 
     int16_t *SampleOut = (int16_t *)SoundOutput->Buffer;
     for (int SampleIndex = 0; SampleIndex < SoundOutput->SampleCount; SampleIndex++)
     {
-        int16_t SampleValue = (int16_t)(sinf(tSine) * ToneAmplitude);
+        int16_t SampleValue = ToneHz ? (int16_t)(sinf(tSine) * ToneAmplitude) : 0;
 
         *SampleOut = SampleValue;
         SampleOut++;
         *SampleOut = SampleValue;
         SampleOut++;
 
-        tSine += (2.0f * Pi32) / (float)SamplesPerCycle;
+        if (ToneHz)
+        {
+            tSine += (2.0f * Pi32) / (float)SamplesPerCycle;
+        }
     }
 }
 
@@ -84,6 +97,7 @@ GameUpdateAndRender(
     // NOTE: Update game state, unless victory has been achieved.
     //
 
+    bool FrameHasSound = false;
     if (!Victory)
     {
         if (LeftInput.MovingUp)
@@ -116,10 +130,14 @@ GameUpdateAndRender(
             {
                 // If the paddle is there to block the puck, bounce
                 Puck.Velocity.X *= -1;
+                GameFillSoundBuffer(SoundOutput, GlobalRightPaddleToneHz);
+                FrameHasSound = true;
             }
             else if (Puck.Box.Right() >= GameWidth)
             {
                 Victory = true;
+                GameFillSoundBuffer(SoundOutput, GlobalVictoryToneHz);
+                FrameHasSound = true;
             }
             else
             {
@@ -135,10 +153,14 @@ GameUpdateAndRender(
             {
                 // If the paddle is there to block the puck, bounce
                 Puck.Velocity.X *= -1;
+                GameFillSoundBuffer(SoundOutput, GlobalLeftPaddleToneHz);
+                FrameHasSound = true;
             }
             else if (Puck.Box.Left <= 0)
             {
                 Victory = true;
+                GameFillSoundBuffer(SoundOutput, GlobalVictoryToneHz);
+                FrameHasSound = true;
             }
             else
             {
@@ -153,6 +175,8 @@ GameUpdateAndRender(
             {
                 // Bounce
                 Puck.Velocity.Y *= -1;
+                GameFillSoundBuffer(SoundOutput, GlobalWallToneHz);
+                FrameHasSound = true;
             }
             else
             {
@@ -166,6 +190,8 @@ GameUpdateAndRender(
             {
                 // Bounce
                 Puck.Velocity.Y *= -1;
+                GameFillSoundBuffer(SoundOutput, GlobalWallToneHz);
+                FrameHasSound = true;
             }
             else
             {
@@ -174,11 +200,11 @@ GameUpdateAndRender(
         }
     }
 
-    //
-    // NOTE: Generate sound
-    //
-
-    GameFillSoundBuffer(SoundOutput, ToneHz);
+    // If frame has no sound, fill with silence
+    if (!FrameHasSound)
+    {
+        GameFillSoundBuffer(SoundOutput, 0);
+    }
 
     //
     // NOTE: Render
