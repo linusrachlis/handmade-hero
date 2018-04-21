@@ -24,10 +24,13 @@ global_variable box RightPaddle;
 global_variable const int NumBoxesToRender = 3;
 global_variable box *BoxesToRender[NumBoxesToRender];
 
-global_variable const int GlobalVictoryToneHz = 1024;
-global_variable const int GlobalWallToneHz = 256;
-global_variable const int GlobalLeftPaddleToneHz = 512;
-global_variable const int GlobalRightPaddleToneHz = 768;
+global_variable const float GlobalSfxLengthSeconds = 0.2f;
+global_variable const int GlobalVictoryToneHz = 800;
+global_variable const int GlobalWallToneHz = 40;
+global_variable const int GlobalLeftPaddleToneHz = 200;
+global_variable const int GlobalRightPaddleToneHz = 400;
+global_variable int GlobalSfxRemainingSamples = 0;
+global_variable int GlobalSfxCurrentToneHz;
 
 internal void GameSetup(int Width, int Height)
 {
@@ -57,34 +60,57 @@ internal void GameSetup(int Width, int Height)
     BoxesToRender[2] = &RightPaddle;
 }
 
-internal void
-GameFillSoundBuffer(game_sound_output *SoundOutput, int ToneHz)
+internal void GameStartSound(game_sound_output *SoundOutput, int ToneHz)
+{
+    // NOTE: if we're in the middle of another sound, this will simply cancel that and
+    // start playing the new sound.
+    GlobalSfxRemainingSamples = SoundOutput->SamplesPerSecond * GlobalSfxLengthSeconds;
+    GlobalSfxCurrentToneHz = ToneHz;
+}
+
+internal void GameFillSoundBuffer(game_sound_output *SoundOutput)
 {
     int ToneAmplitude = 3000;
     int SamplesPerCycle;
+    int SamplesPerHalfCycle;
 
-    if (ToneHz)
+    if (GlobalSfxRemainingSamples)
     {
-        SamplesPerCycle = SoundOutput->SamplesPerSecond / ToneHz;
+        SamplesPerCycle = SoundOutput->SamplesPerSecond / GlobalSfxCurrentToneHz;
+        SamplesPerHalfCycle = SamplesPerCycle / 2;
     }
 
     int16_t *SampleOut = (int16_t *)SoundOutput->Buffer;
-    for (int SampleIndex = 0; SampleIndex < SoundOutput->SampleCount; SampleIndex++)
+
+    int SfxSampleCount;
+    int SilenceSampleCount;
+    if (GlobalSfxRemainingSamples < SoundOutput->SampleCount)
+    {
+        SfxSampleCount = GlobalSfxRemainingSamples;
+        SilenceSampleCount = SoundOutput->SampleCount - GlobalSfxRemainingSamples;
+    }
+    else
+    {
+        SfxSampleCount = SoundOutput->SampleCount;
+        SilenceSampleCount = 0;
+    }
+
+    // Loop for sfx
+    for (int SampleIndex = 0; SampleIndex < SfxSampleCount; SampleIndex++)
     {
         int16_t SampleValue;
-        if (ToneHz)
-        {
-            SampleValue = (SampleIndex % (SamplesPerCycle/2)) ? ToneAmplitude : 0;
-        }
-        else
-        {
-            SampleValue = 0;
-        }
+        SampleValue = ((GlobalSfxRemainingSamples % SamplesPerCycle) > SamplesPerHalfCycle) ? ToneAmplitude : 0;
 
-        *SampleOut = SampleValue;
-        SampleOut++;
-        *SampleOut = SampleValue;
-        SampleOut++;
+        *SampleOut++ = SampleValue;
+        *SampleOut++ = SampleValue;
+        GlobalSfxRemainingSamples--;
+    }
+
+    // Loop for silence
+    for (int SampleIndex = 0; SampleIndex < SilenceSampleCount; SampleIndex++)
+    {
+        *SampleOut++ = 0;
+        *SampleOut++ = 0;
     }
 }
 
@@ -99,7 +125,6 @@ GameUpdateAndRender(
     // NOTE: Update game state, unless victory has been achieved.
     //
 
-    bool FrameHasSound = false;
     if (!Victory)
     {
         if (LeftInput.MovingUp)
@@ -132,14 +157,12 @@ GameUpdateAndRender(
             {
                 // If the paddle is there to block the puck, bounce
                 Puck.Velocity.X *= -1;
-                GameFillSoundBuffer(SoundOutput, GlobalRightPaddleToneHz);
-                FrameHasSound = true;
+                GameStartSound(SoundOutput, GlobalRightPaddleToneHz);
             }
             else if (Puck.Box.Right() >= GameWidth)
             {
                 Victory = true;
-                GameFillSoundBuffer(SoundOutput, GlobalVictoryToneHz);
-                FrameHasSound = true;
+                GameStartSound(SoundOutput, GlobalVictoryToneHz);
             }
             else
             {
@@ -155,14 +178,12 @@ GameUpdateAndRender(
             {
                 // If the paddle is there to block the puck, bounce
                 Puck.Velocity.X *= -1;
-                GameFillSoundBuffer(SoundOutput, GlobalLeftPaddleToneHz);
-                FrameHasSound = true;
+                GameStartSound(SoundOutput, GlobalLeftPaddleToneHz);
             }
             else if (Puck.Box.Left <= 0)
             {
                 Victory = true;
-                GameFillSoundBuffer(SoundOutput, GlobalVictoryToneHz);
-                FrameHasSound = true;
+                GameStartSound(SoundOutput, GlobalVictoryToneHz);
             }
             else
             {
@@ -177,8 +198,7 @@ GameUpdateAndRender(
             {
                 // Bounce
                 Puck.Velocity.Y *= -1;
-                GameFillSoundBuffer(SoundOutput, GlobalWallToneHz);
-                FrameHasSound = true;
+                GameStartSound(SoundOutput, GlobalWallToneHz);
             }
             else
             {
@@ -192,8 +212,7 @@ GameUpdateAndRender(
             {
                 // Bounce
                 Puck.Velocity.Y *= -1;
-                GameFillSoundBuffer(SoundOutput, GlobalWallToneHz);
-                FrameHasSound = true;
+                GameStartSound(SoundOutput, GlobalWallToneHz);
             }
             else
             {
@@ -203,10 +222,7 @@ GameUpdateAndRender(
     }
 
     // If frame has no sound, fill with silence
-    if (!FrameHasSound)
-    {
-        GameFillSoundBuffer(SoundOutput, 0);
-    }
+    GameFillSoundBuffer(SoundOutput);
 
     //
     // NOTE: Render

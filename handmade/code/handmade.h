@@ -62,8 +62,9 @@ struct puck
 
 internal void GameSetup(int Width, int Height);
 
-internal void
-GameFillSoundBuffer(game_sound_output *SoundOutput, int ToneHz);
+internal void GameStartSound(game_sound_output *SoundOutput, int ToneHz);
+
+internal void GameFillSoundBuffer(game_sound_output *SoundOutput);
 
 /*
 TODO: ultimately, this proc needs 4 things from the platform layer:

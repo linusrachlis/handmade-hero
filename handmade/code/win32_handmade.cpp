@@ -1,5 +1,5 @@
 #include <stdint.h>
-#include <math.h>
+#include <stdio.h>
 
 #define internal static
 #define local_persist static
@@ -9,7 +9,6 @@
 
 #include <windows.h>
 #include <dsound.h>
-#include <stdio.h>
 
 typedef int8_t int8;
 typedef int16_t int16;
