@@ -1,7 +1,5 @@
 #if !defined(HANDMADE_H)
 
-#define Pi32 3.1415926535897932384626433832795f
-
 /*
 TODO: services the platform layer provides to the game
 */

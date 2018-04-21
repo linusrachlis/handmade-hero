@@ -60,7 +60,6 @@ internal void GameSetup(int Width, int Height)
 internal void
 GameFillSoundBuffer(game_sound_output *SoundOutput, int ToneHz)
 {
-    local_persist float tSine = 0;
     int ToneAmplitude = 3000;
     int SamplesPerCycle;
 
@@ -72,17 +71,20 @@ GameFillSoundBuffer(game_sound_output *SoundOutput, int ToneHz)
     int16_t *SampleOut = (int16_t *)SoundOutput->Buffer;
     for (int SampleIndex = 0; SampleIndex < SoundOutput->SampleCount; SampleIndex++)
     {
-        int16_t SampleValue = ToneHz ? (int16_t)(sinf(tSine) * ToneAmplitude) : 0;
-
-        *SampleOut = SampleValue;
-        SampleOut++;
-        *SampleOut = SampleValue;
-        SampleOut++;
-
+        int16_t SampleValue;
         if (ToneHz)
         {
-            tSine += (2.0f * Pi32) / (float)SamplesPerCycle;
+            SampleValue = (SampleIndex % (SamplesPerCycle/2)) ? ToneAmplitude : 0;
         }
+        else
+        {
+            SampleValue = 0;
+        }
+
+        *SampleOut = SampleValue;
+        SampleOut++;
+        *SampleOut = SampleValue;
+        SampleOut++;
     }
 }
 
