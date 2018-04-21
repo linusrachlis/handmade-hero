@@ -45,6 +45,7 @@ global_variable LPDIRECTSOUNDBUFFER GlobalSecondaryBuffer;
 // (It's all academic anyway, but learning is the point)
 global_variable game_input LeftInput = {};
 global_variable game_input RightInput = {};
+global_variable bool GlobalCrazyMode = false;
 
 internal win32_window_dimension Win32GetWindowDimension(HWND Window)
 {
@@ -170,7 +171,10 @@ LRESULT CALLBACK Win32MainWindowCallback(
                     // case 'Q':
                     // case 'E':
                     // case VK_ESCAPE:
-                    // case VK_SPACE:
+                    case VK_SPACE:
+                    {
+                        GlobalCrazyMode = IsDown;
+                    } break;
                     default:
                         break;
                 }
@@ -487,6 +491,7 @@ int CALLBACK WinMain(
                 GameUpdateAndRender(
                     &GameGraphicsBuffer,
                     LeftInput, RightInput,
+                    GlobalCrazyMode,
                     &GameSoundOutput, SoundOutput.ToneHz);
 
                 if (SoundIsValid)

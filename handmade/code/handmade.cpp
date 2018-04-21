@@ -211,6 +211,7 @@ GameUpdateAndRender(
     game_offscreen_buffer *Buffer,
     game_input LeftInput,
     game_input RightInput,
+    bool CrazyMode,
     game_sound_output *SoundOutput, int ToneHz)
 {
     //
@@ -322,7 +323,9 @@ GameUpdateAndRender(
     // NOTE: Render
     //
 
-    uint32 BoxColour = Victory ? Black : Red;
+    uint32 BoxColour = Victory ?
+        (CrazyMode ? Black : Red) :
+        (CrazyMode ? Red : White);
 
     // Note: Row has to be a 1-byte pointer because we use the Pitch to advance it, and
     // Pitch is a number of bytes.
@@ -351,13 +354,17 @@ GameUpdateAndRender(
             {
                 *Pixel = BoxColour;
             }
-            else
+            else if (CrazyMode)
             {
                 // Cast to 8-bit so they roll over at 256
                 uint8 Green = Y + YOffset;
                 uint8 Blue = X + XOffset;
                 // Pixel structure in register: xx RR GG BB
                 *Pixel = (Green << 8) | Blue;
+            }
+            else
+            {
+                *Pixel = Black;
             }
 
             // Advance to write next pixel
