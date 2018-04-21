@@ -20,9 +20,11 @@ global_variable const int PaddleSpeed = 2;
 global_variable const int PuckSpeed = 4;
 
 // Pixel structure in register: xx RR GG BB
-global_variable const uint32_t White = (255 << 16) | (255 << 8) | 255;
-global_variable const uint32_t Red = (255 << 16);
-global_variable const uint32_t Black = 0;
+global_variable const uint32 White = (255 << 16) | (255 << 8) | 255;
+global_variable const uint32 Red = (255 << 16);
+global_variable const uint32 Black = 0;
+global_variable uint8 XOffset = 0;
+global_variable uint8 YOffset = 0;
 
 global_variable puck Puck;
 global_variable box LeftPaddle;
@@ -86,7 +88,7 @@ internal void GameFillSoundBuffer(game_sound_output *SoundOutput)
         SamplesPerHalfCycle = SamplesPerCycle / 2;
     }
 
-    int16_t *SampleOut = (int16_t *)SoundOutput->Buffer;
+    int16 *SampleOut = (int16 *)SoundOutput->Buffer;
 
     int SfxSampleCount;
     int SilenceSampleCount;
@@ -104,7 +106,7 @@ internal void GameFillSoundBuffer(game_sound_output *SoundOutput)
     // Loop for sfx
     for (int SampleIndex = 0; SampleIndex < SfxSampleCount; SampleIndex++)
     {
-        int16_t SampleValue;
+        int16 SampleValue;
         SampleValue = ((GlobalSfxRemainingSamples % SamplesPerCycle) > SamplesPerHalfCycle) ? ToneAmplitude : 0;
 
         *SampleOut++ = SampleValue;
@@ -234,15 +236,15 @@ GameUpdateAndRender(
     // NOTE: Render
     //
 
-    uint32_t BoxColour = Victory ? Red : White;
+    uint32 BoxColour = Victory ? Black : Red;
 
     // Note: Row has to be a 1-byte pointer because we use the Pitch to advance it, and
     // Pitch is a number of bytes.
-    uint8_t *Row = (uint8_t *)Buffer->Memory;
+    uint8 *Row = (uint8 *)Buffer->Memory;
 
     for (int Y = 0; Y < Buffer->Height; Y++)
     {
-        uint32_t *Pixel = (uint32_t *)Row;
+        uint32 *Pixel = (uint32 *)Row;
 
         for (int X = 0; X < Buffer->Width; X++)
         {
@@ -259,7 +261,18 @@ GameUpdateAndRender(
                 }
             }
 
-            *Pixel = PixelIsOccupied ? BoxColour : Black;
+            if (PixelIsOccupied)
+            {
+                *Pixel = BoxColour;
+            }
+            else
+            {
+                // Cast to 8-bit so they roll over at 256
+                uint8 Green = Y + YOffset;
+                uint8 Blue = X + XOffset;
+                // Pixel structure in register: xx RR GG BB
+                *Pixel = (Green << 8) | Blue;
+            }
 
             // Advance to write next pixel
             Pixel++;
@@ -268,4 +281,7 @@ GameUpdateAndRender(
         // Advance row pointer by number of bytes per row
         Row += Buffer->Pitch;
     }
+
+    XOffset++;
+    YOffset++;
 }

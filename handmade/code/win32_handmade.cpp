@@ -5,11 +5,6 @@
 #define local_persist static
 #define global_variable static
 
-#include "handmade.cpp"
-
-#include <windows.h>
-#include <dsound.h>
-
 typedef int8_t int8;
 typedef int16_t int16;
 typedef int32_t int32;
@@ -18,6 +13,12 @@ typedef uint8_t uint8;
 typedef uint16_t uint16;
 typedef uint32_t uint32;
 typedef uint64_t uint64;
+
+#include "handmade.cpp"
+
+#include <windows.h>
+#include <dsound.h>
+
 typedef HRESULT WINAPI dsound_create_func(LPCGUID pcGuidDevice, LPDIRECTSOUND *ppDS, LPUNKNOWN pUnkOuter);
 
 struct win32_offscreen_buffer
