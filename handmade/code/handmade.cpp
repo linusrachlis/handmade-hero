@@ -1,3 +1,5 @@
+#include "handmade.h"
+
 /*
 TODO
 - tune padding/puck speed to balance difficulty
@@ -5,51 +7,6 @@ TODO
 - paddle hit angling
 - AI?
 */
-
-struct game_offscreen_buffer
-{
-    void *Memory;
-    int Width;
-    int Height;
-    int BytesPerPixel;
-    int Pitch;
-};
-
-struct game_input
-{
-    bool MovingUp;
-    bool MovingDown;
-};
-
-struct box
-{
-    int Top;
-    int Left;
-    int Width;
-    int Height;
-
-    int Bottom()
-    {
-        return Top + Height;
-    }
-
-    int Right()
-    {
-        return Left + Width;
-    }
-};
-
-struct velocity
-{
-    int X;
-    int Y;
-};
-
-struct puck
-{
-    box Box;
-    velocity Velocity;
-};
 
 global_variable int GameWidth;
 global_variable int GameHeight;
@@ -96,10 +53,32 @@ internal void GameSetup(int Width, int Height)
 }
 
 internal void
+GameFillSoundBuffer(game_sound_output *SoundOutput, int ToneHz)
+{
+    local_persist float tSine = 0;
+    int ToneAmplitude = 3000;
+    int SamplesPerCycle = SoundOutput->SamplesPerSecond / ToneHz;
+
+    int16_t *SampleOut = (int16_t *)SoundOutput->Buffer;
+    for (int SampleIndex = 0; SampleIndex < SoundOutput->SampleCount; SampleIndex++)
+    {
+        int16_t SampleValue = (int16_t)(sinf(tSine) * ToneAmplitude);
+
+        *SampleOut = SampleValue;
+        SampleOut++;
+        *SampleOut = SampleValue;
+        SampleOut++;
+
+        tSine += (2.0f * Pi32) / (float)SamplesPerCycle;
+    }
+}
+
+internal void
 GameUpdateAndRender(
     game_offscreen_buffer *Buffer,
     game_input LeftInput,
-    game_input RightInput)
+    game_input RightInput,
+    game_sound_output *SoundOutput, int ToneHz)
 {
     //
     // NOTE: Update game state, unless victory has been achieved.
@@ -194,6 +173,12 @@ GameUpdateAndRender(
             }
         }
     }
+
+    //
+    // NOTE: Generate sound
+    //
+
+    GameFillSoundBuffer(SoundOutput, ToneHz);
 
     //
     // NOTE: Render
