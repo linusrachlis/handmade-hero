@@ -3,7 +3,6 @@
 /*
 TODO
 - paddle shouldn't be able to leave the screen
-- sound effects
 - paddle hit angling
 - platform timing (avoid just doing as many FPS as possible)
 - bug: paddle hit still counts if puck is past the edge of the paddle, as long as
@@ -33,12 +32,9 @@ global_variable const int NumBoxesToRender = 3;
 global_variable box *BoxesToRender[NumBoxesToRender];
 
 global_variable const float GlobalSfxLengthSeconds = 0.2f;
-global_variable const int GlobalVictoryToneHz = 800;
-global_variable const int GlobalWallToneHz = 40;
-global_variable const int GlobalLeftPaddleToneHz = 200;
-global_variable const int GlobalRightPaddleToneHz = 400;
-global_variable int GlobalSfxRemainingSamples = 0;
-global_variable int GlobalSfxCurrentToneHz;
+global_variable int GlobalSampleIndexInCurrentSfx = 0;
+global_variable int GlobalTotalSamplesInCurrentSfx;
+global_variable GameSoundWaveFunc *GlobalCurrentSfxWaveFunc;
 
 internal void GameSetup(int Width, int Height)
 {
@@ -68,37 +64,125 @@ internal void GameSetup(int Width, int Height)
     BoxesToRender[2] = &RightPaddle;
 }
 
-internal void GameStartSound(game_sound_output *SoundOutput, int ToneHz)
+internal int16 GameSquareWave(int ToneAmplitude, int SamplesPerCycle, int SampleIndex)
+{
+    int SamplesPerHalfCycle = SamplesPerCycle / 2;
+    int SampleValue = ((SampleIndex % SamplesPerCycle) > SamplesPerHalfCycle) ?
+        ToneAmplitude :
+        -ToneAmplitude;
+    return SampleValue;
+}
+
+internal int16
+GameDynamicSquareWave(
+    int StartToneHz,
+    int ChangeToneHz,
+    int ToneAmplitude,
+    int SamplesPerSecond,
+    int SampleIndex,
+    int TotalSamples,
+    float *PositionInSquareWave)
+{
+    int ToneHz = StartToneHz + (int)(ChangeToneHz * ((float)SampleIndex/(float)TotalSamples));
+    *PositionInSquareWave += 1.0f / (SamplesPerSecond / ToneHz);
+    if (*PositionInSquareWave > 1.0f)
+    {
+        // Since you apparently can't mod a float, manually keep it within 0.0 - 1.0.
+        *PositionInSquareWave -= 1.0f;
+    }
+    int16 SampleValue = (*PositionInSquareWave > 0.5f) ? ToneAmplitude : -ToneAmplitude;
+    return SampleValue;
+}
+
+internal int16 GameWallSfx(int SamplesPerSecond, int SampleIndex)
+{
+    local_persist int TotalSamples = SamplesPerSecond / 4;
+    local_persist int HalfTotalSamples = TotalSamples/2;
+    local_persist float PositionInSquareWave = 0.0f;
+
+    // Go from 100 to 200 and back to 100hz.
+    if (SampleIndex < HalfTotalSamples)
+    {
+        return GameDynamicSquareWave(
+            100,
+            100,
+            1000,
+            SamplesPerSecond,
+            SampleIndex,
+            HalfTotalSamples,
+            &PositionInSquareWave);
+    }
+    else
+    {
+        return GameDynamicSquareWave(
+            200,
+            -100,
+            1000,
+            SamplesPerSecond,
+            SampleIndex - HalfTotalSamples,
+            HalfTotalSamples,
+            &PositionInSquareWave);
+    }
+}
+
+internal int16 GamePaddleSfx(int SamplesPerSecond, int SampleIndex)
+{
+    local_persist int TotalSamples = SamplesPerSecond / 5;
+    local_persist float PositionInSquareWave = 0.0f;
+
+    return GameDynamicSquareWave(
+        400,
+        400,
+        1000,
+        SamplesPerSecond,
+        SampleIndex,
+        TotalSamples,
+        &PositionInSquareWave);
+}
+
+internal int16 GameVictorySfx(int SamplesPerSecond, int SampleIndex)
+{
+    local_persist int TotalSamples = SamplesPerSecond * 2;
+    local_persist float PositionInSquareWave = 0.0f;
+    // Make a decreasing tone from 1000hz to 40hz.
+    return GameDynamicSquareWave(
+        1000,
+        -960,
+        1000,
+        SamplesPerSecond,
+        SampleIndex,
+        TotalSamples,
+        &PositionInSquareWave);
+}
+
+internal void GameStartSound(GameSoundWaveFunc WaveFunc, int SampleCount)
 {
     // NOTE: if we're in the middle of another sound, this will simply cancel that and
     // start playing the new sound.
-    GlobalSfxRemainingSamples = SoundOutput->SamplesPerSecond * GlobalSfxLengthSeconds;
-    GlobalSfxCurrentToneHz = ToneHz;
+    GlobalSampleIndexInCurrentSfx = 0;
+    GlobalTotalSamplesInCurrentSfx = SampleCount;
+    GlobalCurrentSfxWaveFunc = WaveFunc;
 }
 
 internal void GameFillSoundBuffer(game_sound_output *SoundOutput)
 {
-    int ToneAmplitude = 3000;
-    int SamplesPerCycle;
-    int SamplesPerHalfCycle;
-
-    if (GlobalSfxRemainingSamples)
-    {
-        SamplesPerCycle = SoundOutput->SamplesPerSecond / GlobalSfxCurrentToneHz;
-        SamplesPerHalfCycle = SamplesPerCycle / 2;
-    }
-
     int16 *SampleOut = (int16 *)SoundOutput->Buffer;
 
     int SfxSampleCount;
     int SilenceSampleCount;
-    if (GlobalSfxRemainingSamples < SoundOutput->SampleCount)
+    int SfxRemainingSamples = GlobalTotalSamplesInCurrentSfx - GlobalSampleIndexInCurrentSfx;
+    if (SfxRemainingSamples < SoundOutput->SampleCount)
     {
-        SfxSampleCount = GlobalSfxRemainingSamples;
-        SilenceSampleCount = SoundOutput->SampleCount - GlobalSfxRemainingSamples;
+        // Remaining samples in current sound effect (which may be 0) won't be enough to fill
+        // the buffer with the number of samples requested by the platform. Use silence for
+        // the rest.
+        SfxSampleCount = SfxRemainingSamples;
+        SilenceSampleCount = SoundOutput->SampleCount - SfxRemainingSamples;
     }
     else
     {
+        // Currently playing sound effect will extend beyond the current number of
+        // samples asked for. No need to fill silence.
         SfxSampleCount = SoundOutput->SampleCount;
         SilenceSampleCount = 0;
     }
@@ -106,12 +190,12 @@ internal void GameFillSoundBuffer(game_sound_output *SoundOutput)
     // Loop for sfx
     for (int SampleIndex = 0; SampleIndex < SfxSampleCount; SampleIndex++)
     {
-        int16 SampleValue;
-        SampleValue = ((GlobalSfxRemainingSamples % SamplesPerCycle) > SamplesPerHalfCycle) ? ToneAmplitude : 0;
-
+        int16 SampleValue = GlobalCurrentSfxWaveFunc(
+            SoundOutput->SamplesPerSecond,
+            GlobalSampleIndexInCurrentSfx);
         *SampleOut++ = SampleValue;
         *SampleOut++ = SampleValue;
-        GlobalSfxRemainingSamples--;
+        GlobalSampleIndexInCurrentSfx++;
     }
 
     // Loop for silence
@@ -135,6 +219,9 @@ GameUpdateAndRender(
 
     if (!Victory)
     {
+        XOffset++;
+        YOffset++;
+
         if (LeftInput.MovingUp)
         {
             LeftPaddle.Top -= PaddleSpeed;
@@ -165,12 +252,12 @@ GameUpdateAndRender(
             {
                 // If the paddle is there to block the puck, bounce
                 Puck.Velocity.X *= -1;
-                GameStartSound(SoundOutput, GlobalRightPaddleToneHz);
+                GameStartSound(&GamePaddleSfx, SoundOutput->SamplesPerSecond / 5);
             }
             else if (Puck.Box.Right() >= GameWidth)
             {
                 Victory = true;
-                GameStartSound(SoundOutput, GlobalVictoryToneHz);
+                GameStartSound(&GameVictorySfx, SoundOutput->SamplesPerSecond * 2);
             }
             else
             {
@@ -186,12 +273,12 @@ GameUpdateAndRender(
             {
                 // If the paddle is there to block the puck, bounce
                 Puck.Velocity.X *= -1;
-                GameStartSound(SoundOutput, GlobalLeftPaddleToneHz);
+                GameStartSound(&GamePaddleSfx, SoundOutput->SamplesPerSecond / 5);
             }
             else if (Puck.Box.Left <= 0)
             {
                 Victory = true;
-                GameStartSound(SoundOutput, GlobalVictoryToneHz);
+                GameStartSound(&GameVictorySfx, SoundOutput->SamplesPerSecond * 2);
             }
             else
             {
@@ -206,7 +293,7 @@ GameUpdateAndRender(
             {
                 // Bounce
                 Puck.Velocity.Y *= -1;
-                GameStartSound(SoundOutput, GlobalWallToneHz);
+                GameStartSound(&GameWallSfx, SoundOutput->SamplesPerSecond / 5);
             }
             else
             {
@@ -220,7 +307,7 @@ GameUpdateAndRender(
             {
                 // Bounce
                 Puck.Velocity.Y *= -1;
-                GameStartSound(SoundOutput, GlobalWallToneHz);
+                GameStartSound(&GameWallSfx, SoundOutput->SamplesPerSecond / 5);
             }
             else
             {
@@ -229,7 +316,6 @@ GameUpdateAndRender(
         }
     }
 
-    // If frame has no sound, fill with silence
     GameFillSoundBuffer(SoundOutput);
 
     //
@@ -281,7 +367,4 @@ GameUpdateAndRender(
         // Advance row pointer by number of bytes per row
         Row += Buffer->Pitch;
     }
-
-    XOffset++;
-    YOffset++;
 }

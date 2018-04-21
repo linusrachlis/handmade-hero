@@ -60,25 +60,7 @@ struct puck
     velocity Velocity;
 };
 
-internal void GameSetup(int Width, int Height);
-
-internal void GameStartSound(game_sound_output *SoundOutput, int ToneHz);
-
-internal void GameFillSoundBuffer(game_sound_output *SoundOutput);
-
-/*
-TODO: ultimately, this proc needs 4 things from the platform layer:
-- user input
-- graphics buffer to fill
-- sound buffer to fill
-- timing information
-*/
-internal void
-GameUpdateAndRender(
-    game_offscreen_buffer *Buffer,
-    game_input LeftInput,
-    game_input RightInput,
-    game_sound_output *SoundOutput, int ToneHz);
+typedef int16 GameSoundWaveFunc(int, int);
 
 #define HANDMADE_H
 #endif
