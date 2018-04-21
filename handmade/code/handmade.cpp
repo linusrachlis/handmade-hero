@@ -5,6 +5,7 @@ TODO
 - paddle shouldn't be able to leave the screen
 - sound effects
 - paddle hit angling
+- platform timing (avoid just doing as many FPS as possible)
 - bug: paddle hit still counts if puck is past the edge of the paddle, as long as
   the paddle _touches_ the puck before the puck touches the edge of the screen.
   more realistic would be that the puck just bounces off the end of the paddle

@@ -377,7 +377,7 @@ int CALLBACK WinMain(
         HWND Window = CreateWindowEx(
             0,
             WindowClass.lpszClassName,
-            "Handmade Hero",
+            "Best Pong Ever",
             WS_OVERLAPPEDWINDOW | WS_VISIBLE,
             CW_USEDEFAULT,
             CW_USEDEFAULT,
