@@ -27,11 +27,8 @@ typedef HRESULT WINAPI dsound_create_func(LPCGUID pcGuidDevice, LPDIRECTSOUND *p
 
 global_variable bool GlobalRunning = false;
 global_variable win32_offscreen_buffer GlobalBackbuffer;
-// global_variable bool GoingUp = false;
-// global_variable bool GoingLeft = false;
-// global_variable bool GoingDown = false;
-// global_variable bool GoingRight = false;
 global_variable LPDIRECTSOUNDBUFFER GlobalSecondaryBuffer;
+global_variable int64 GlobalPerfCountPerSecond;
 
 internal win32_window_dimension Win32GetWindowDimension(HWND Window)
 {
@@ -378,6 +375,21 @@ Win32ProcessPendingMessages(game_controller_input *KeyboardController)
     }
 }
 
+inline LARGE_INTEGER
+Win32GetPerfCount()
+{
+    LARGE_INTEGER PerfCount;
+    QueryPerformanceCounter(&PerfCount);
+    return PerfCount;
+}
+
+inline float
+Win32GetSecondsElapsed(LARGE_INTEGER Start, LARGE_INTEGER End)
+{
+    float Result = (float)(End.QuadPart - Start.QuadPart) / (float)GlobalPerfCountPerSecond;
+    return Result;
+}
+
 int CALLBACK WinMain(
     HINSTANCE Instance,
     HINSTANCE PrevInstance,
@@ -386,7 +398,7 @@ int CALLBACK WinMain(
 {
     LARGE_INTEGER PerfCountPerSecondResult;
     QueryPerformanceFrequency(&PerfCountPerSecondResult);
-    int64 PerfCountPerSecond = PerfCountPerSecondResult.QuadPart;
+    GlobalPerfCountPerSecond = PerfCountPerSecondResult.QuadPart;
 
     Win32ResizeDIBSection(&GlobalBackbuffer, 1066, 600);
 
@@ -397,6 +409,11 @@ int CALLBACK WinMain(
     WindowClass.hInstance = Instance;
     // WindowClass.hIcon;
     WindowClass.lpszClassName = "HandmadeHeroWindowClass";
+
+    // TODO how to query on windows?
+    int MonitorRefreshHz = 60;
+    int GameUpdateHz = MonitorRefreshHz / 2;
+    float TargetSecondsPerFrame = 1.0f / (float)GameUpdateHz;
 
     if (RegisterClass(&WindowClass)) {
         HWND Window = CreateWindowEx(
@@ -439,8 +456,7 @@ int CALLBACK WinMain(
                 0, SoundOutput.SecondaryBufferSize,
                 MEM_RESERVE|MEM_COMMIT, PAGE_READWRITE);
 
-            LARGE_INTEGER LastPerfCount;
-            QueryPerformanceCounter(&LastPerfCount);
+            LARGE_INTEGER LastPerfCount = Win32GetPerfCount();
             uint64 LastCycleCount = __rdtsc();
 
             while (GlobalRunning)
@@ -449,8 +465,7 @@ int CALLBACK WinMain(
                 // TODO don't zero everything
                 game_controller_input *OldKeyboardController = &OldInput->Controllers[0];
                 game_controller_input *NewKeyboardController = &NewInput->Controllers[0];
-                game_controller_input ZeroController = {};
-                *NewKeyboardController = ZeroController;
+                *NewKeyboardController = {};
 
                 for (int ButtonIndex = 0;
                     ButtonIndex < ArrayCount(OldKeyboardController->Buttons);
@@ -461,7 +476,6 @@ int CALLBACK WinMain(
                     NewKeyboardController->Buttons[ButtonIndex].EndedDown =
                         OldKeyboardController->Buttons[ButtonIndex].EndedDown;
                 }
-
 
                 Win32ProcessPendingMessages(NewKeyboardController);
 
@@ -529,21 +543,27 @@ int CALLBACK WinMain(
                     Dimension.Width, Dimension.Height);
                 ReleaseDC(Window, DeviceContext);
 
+                LARGE_INTEGER EndPerfCount = Win32GetPerfCount();
+                double SecondsElapsed = Win32GetSecondsElapsed(LastPerfCount, EndPerfCount);
+
+                while (SecondsElapsed < TargetSecondsPerFrame)
+                {
+                    // TODO don't melt CPU
+                    EndPerfCount = Win32GetPerfCount();
+                    SecondsElapsed = Win32GetSecondsElapsed(LastPerfCount, EndPerfCount);
+                }
+
                 uint64 EndCycleCount = __rdtsc();
-                int ElapsedCycleCount = (int)(EndCycleCount - LastCycleCount);
+                int64 ElapsedCycleCount = EndCycleCount - LastCycleCount;
+                double MCyclesPerFrame = (double)ElapsedCycleCount / (1000.0f * 1000.0f);
 
-                LARGE_INTEGER EndPerfCount;
-                QueryPerformanceCounter(&EndPerfCount);
-                int64 ElapsedPerfCount = EndPerfCount.QuadPart - LastPerfCount.QuadPart;
-                int32 ElapsedMilliseconds = (int32)((1000*ElapsedPerfCount) / PerfCountPerSecond);
-                int FramesPerSecond = (int)(PerfCountPerSecond / ElapsedPerfCount);
-                uint64 CyclesPerSecond = ElapsedCycleCount * FramesPerSecond;
+                double FramesPerSecond = 1.0f / SecondsElapsed;
 
-                // char Buffer[256];
-                // sprintf_s(Buffer, sizeof(Buffer), "Elapsed MS: %d, FPS = %d\n", ElapsedMilliseconds, FramesPerSecond);
-                // OutputDebugStringA(Buffer);
-                // sprintf_s(Buffer, sizeof(Buffer), "Elapsed cycles: %d, per sec = %I64u\n", ElapsedCycleCount, CyclesPerSecond);
-                // OutputDebugStringA(Buffer);
+                char Buffer[256];
+                sprintf_s(Buffer, sizeof(Buffer),
+                    "%.02fms/f,  %.02ff/s,  %.02fmc/f\n",
+                    SecondsElapsed * 1000.0f, FramesPerSecond, MCyclesPerFrame);
+                OutputDebugStringA(Buffer);
 
                 LastPerfCount = EndPerfCount;
                 LastCycleCount = EndCycleCount;
