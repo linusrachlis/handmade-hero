@@ -1,5 +1,9 @@
 #include "handmade.h"
 
+global_variable int GlobalXOffset = 0;
+global_variable int GlobalYOffset = 0;
+global_variable int GlobalToneHz = 256;
+
 internal void
 GameFillSoundBuffer(game_sound_output *SoundOutput, int ToneHz)
 {
@@ -17,7 +21,14 @@ GameFillSoundBuffer(game_sound_output *SoundOutput, int ToneHz)
         *SampleOut = SampleValue;
         SampleOut++;
 
-        tSine += (2.0f * Pi32) / (float)SamplesPerCycle;
+        float TwoPi = (2.0f * Pi32);
+        tSine += TwoPi / (float)SamplesPerCycle;
+        if (tSine > TwoPi)
+        {
+            // Keep tSine within 2Pi, because that's the range that matters, and if it
+            // gets too big the pitch starts changing (I think due to floating point error).
+            tSine -= TwoPi;
+        }
     }
 }
 
@@ -34,8 +45,8 @@ RenderWeirdGradient(game_offscreen_buffer *Buffer, int XOffset, int YOffset)
 
         for (int X = 0; X < Buffer->Width; X++)
         {
-            uint8_t Green = (Y + YOffset);
-            uint8_t Blue = (X + XOffset);
+            uint8 Green = (uint8)(Y + YOffset);
+            uint8 Blue = (uint8)(X + XOffset);
             // Pixel structure in register: xx RR GG BB
             *Pixel = (Green << 8) | Blue;
             // Advance to write next pixel
@@ -50,9 +61,33 @@ RenderWeirdGradient(game_offscreen_buffer *Buffer, int XOffset, int YOffset)
 internal void
 GameUpdateAndRender(
     game_offscreen_buffer *GraphicsBuffer,
-    int XOffset, int YOffset,
-    game_sound_output *SoundOutput, int ToneHz)
+    game_input *Input,
+    game_sound_output *SoundOutput)
 {
-    GameFillSoundBuffer(SoundOutput, ToneHz);
-    RenderWeirdGradient(GraphicsBuffer, XOffset, YOffset);
+    game_controller_input *Keyboard = &Input->Controllers[0];
+
+    if (Keyboard->Left.EndedDown)
+    {
+        GlobalXOffset--;
+    }
+    if (Keyboard->Right.EndedDown)
+    {
+        GlobalXOffset++;
+    }
+    if (Keyboard->Up.EndedDown)
+    {
+        GlobalYOffset--;
+        GlobalToneHz++;
+    }
+    if (Keyboard->Down.EndedDown)
+    {
+        GlobalYOffset++;
+        if (GlobalToneHz > 1)
+        {
+            GlobalToneHz--;
+        }
+    }
+
+    GameFillSoundBuffer(SoundOutput, GlobalToneHz);
+    RenderWeirdGradient(GraphicsBuffer, GlobalXOffset, GlobalYOffset);
 }

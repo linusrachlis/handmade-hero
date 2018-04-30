@@ -6,12 +6,6 @@
 #define global_variable static
 #define CONTROL_SPEED 5
 
-#include "handmade.cpp"
-
-#include <windows.h>
-#include <dsound.h>
-#include <stdio.h>
-
 typedef int8_t int8;
 typedef int16_t int16;
 typedef int32_t int32;
@@ -20,30 +14,23 @@ typedef uint8_t uint8;
 typedef uint16_t uint16;
 typedef uint32_t uint32;
 typedef uint64_t uint64;
+
+#include "handmade.cpp"
+
+#include <windows.h>
+#include <dsound.h>
+#include <stdio.h>
+
 typedef HRESULT WINAPI dsound_create_func(LPCGUID pcGuidDevice, LPDIRECTSOUND *ppDS, LPUNKNOWN pUnkOuter);
 
-struct win32_offscreen_buffer
-{
-    BITMAPINFO Info;
-    void *Memory;
-    int Width;
-    int Height;
-    int BytesPerPixel;
-    int Pitch;
-};
-
-struct win32_window_dimension
-{
-    int Width;
-    int Height;
-};
+#include "win32_handmade.h"
 
 global_variable bool GlobalRunning = false;
 global_variable win32_offscreen_buffer GlobalBackbuffer;
-global_variable bool GoingUp = false;
-global_variable bool GoingLeft = false;
-global_variable bool GoingDown = false;
-global_variable bool GoingRight = false;
+// global_variable bool GoingUp = false;
+// global_variable bool GoingLeft = false;
+// global_variable bool GoingDown = false;
+// global_variable bool GoingRight = false;
 global_variable LPDIRECTSOUNDBUFFER GlobalSecondaryBuffer;
 
 internal win32_window_dimension Win32GetWindowDimension(HWND Window)
@@ -130,56 +117,12 @@ LRESULT CALLBACK Win32MainWindowCallback(
             EndPaint(Window, &Paint);
         } break;
 
-        // TODO Capturing SYSKEY* messages and then not calling DefWindowProc has the effect
-        // of disabling shortcuts like Alt-F4 to close the window. Maybe this is what we want?
-        // For now, just following Casey.
         case WM_SYSKEYDOWN:
         case WM_SYSKEYUP:
         case WM_KEYDOWN:
         case WM_KEYUP:
         {
-            uint32_t VKCode = WParam;
-            bool WasDown = ((LParam & (1 << 30)) != 0);
-            bool IsDown = ((LParam & (1 << 31)) == 0);
-
-            if (WasDown != IsDown)
-            {
-                switch (VKCode)
-                {
-                    case 'W':
-                    case VK_UP:
-                    {
-                        GoingUp = IsDown;
-                    } break;
-                    case 'A':
-                    case VK_LEFT:
-                    {
-                        GoingLeft = IsDown;
-                    } break;
-                    case 'S':
-                    case VK_DOWN:
-                    {
-                        GoingDown = IsDown;
-                    } break;
-                    case 'D':
-                    case VK_RIGHT:
-                    {
-                        GoingRight = IsDown;
-                    } break;
-                    case 'Q':
-                    case 'E':
-                    case VK_ESCAPE:
-                    case VK_SPACE:
-                    default:
-                        break;
-                }
-            }
-
-            bool AltKeyWasDown = (LParam & (1 << 29)) != 0;
-            if ((VKCode == VK_F4) && AltKeyWasDown)
-            {
-                GlobalRunning = false;
-            }
+            Assert(!"Key message sent to main window callback!");
         } break;
 
         default:
@@ -191,7 +134,7 @@ LRESULT CALLBACK Win32MainWindowCallback(
     return(Result);
 }
 
-void Win32InitDSound(HWND Window, int32_t SamplesPerSecond, int32_t BufferSize)
+void Win32InitDSound(HWND Window, int32 SamplesPerSecond, int32 BufferSize)
 {
     HMODULE DSoundLibrary = LoadLibrary("dsound.dll");
 
@@ -262,17 +205,6 @@ void Win32InitDSound(HWND Window, int32_t SamplesPerSecond, int32_t BufferSize)
     }
 }
 
-struct win32_sound_output
-{
-    int SamplesPerSecond;
-    int ToneHz;
-    int BytesPerSample;
-    int SecondaryBufferSize;
-    uint32 RunningSampleIndex;
-    int LatencySampleCount;
-    int LatencyBytes;
-};
-
 internal void
 Win32ClearSoundBuffer(win32_sound_output *SoundOutput)
 {
@@ -287,14 +219,14 @@ Win32ClearSoundBuffer(win32_sound_output *SoundOutput)
         &Region2, &Region2Size,
         0)))
     {
-        uint8_t *SampleDest = (uint8_t *)Region1;
+        uint8 *SampleDest = (uint8 *)Region1;
         for (DWORD ByteIndex = 0; ByteIndex < Region1Size; ByteIndex++)
         {
             *SampleDest = 0;
             SampleDest++;
         }
 
-        SampleDest = (uint8_t *)Region2;
+        SampleDest = (uint8 *)Region2;
         for (DWORD ByteIndex = 0; ByteIndex < Region2Size; ByteIndex++)
         {
             *SampleDest = 0;
@@ -351,6 +283,101 @@ Win32FillSoundBuffer(
     }
 }
 
+internal void
+Win32ProcessKeyboardMessage(game_button_state *NewState, bool IsDown)
+{
+    Assert(NewState->EndedDown != IsDown);
+    NewState->EndedDown = IsDown;
+    NewState->HalfTransitionCount++;
+}
+
+internal void
+Win32ProcessPendingMessages(game_controller_input *KeyboardController)
+{
+    MSG Message;
+    while (PeekMessage(&Message, 0, 0, 0, PM_REMOVE))
+    {
+        switch (Message.message)
+        {
+            case WM_QUIT:
+            {
+                GlobalRunning = false;
+            } break;
+
+            case WM_SYSKEYDOWN:
+            case WM_SYSKEYUP:
+            case WM_KEYDOWN:
+            case WM_KEYUP:
+            {
+                uint32 VKCode = (uint32)Message.wParam;
+                bool WasDown = ((Message.lParam & (1 << 30)) != 0);
+                bool IsDown = ((Message.lParam & (1 << 31)) == 0);
+
+                if (WasDown != IsDown)
+                {
+                    switch (VKCode)
+                    {
+                        case 'W':
+                        case VK_UP:
+                        {
+                            Win32ProcessKeyboardMessage(&KeyboardController->Up, IsDown);
+                        } break;
+
+                        case 'A':
+                        case VK_LEFT:
+                        {
+                            Win32ProcessKeyboardMessage(&KeyboardController->Left, IsDown);
+                        } break;
+
+                        case 'S':
+                        case VK_DOWN:
+                        {
+                            Win32ProcessKeyboardMessage(&KeyboardController->Down, IsDown);
+                        } break;
+
+                        case 'D':
+                        case VK_RIGHT:
+                        {
+                            Win32ProcessKeyboardMessage(&KeyboardController->Right, IsDown);
+                        } break;
+
+                        case 'Q':
+                        {
+                            Win32ProcessKeyboardMessage(&KeyboardController->LeftShoulder, IsDown);
+                        } break;
+
+                        case 'E':
+                        {
+                            Win32ProcessKeyboardMessage(&KeyboardController->RightShoulder, IsDown);
+                        } break;
+
+                        case VK_ESCAPE:
+                        {
+                            GlobalRunning = false;
+                        } break;
+
+                        case VK_SPACE:
+                        default:
+                        break;
+                    }
+                }
+
+                bool AltKeyWasDown = (Message.lParam & (1 << 29)) != 0;
+                if ((VKCode == VK_F4) && AltKeyWasDown)
+                {
+                    GlobalRunning = false;
+                }
+            } break;
+
+            default:
+            {
+                TranslateMessage(&Message);
+                DispatchMessage(&Message);
+            } break;
+        }
+    }
+}
+
 int CALLBACK WinMain(
     HINSTANCE Instance,
     HINSTANCE PrevInstance,
@@ -359,7 +386,7 @@ int CALLBACK WinMain(
 {
     LARGE_INTEGER PerfCountPerSecondResult;
     QueryPerformanceFrequency(&PerfCountPerSecondResult);
-    int64_t PerfCountPerSecond = PerfCountPerSecondResult.QuadPart;
+    int64 PerfCountPerSecond = PerfCountPerSecondResult.QuadPart;
 
     Win32ResizeDIBSection(&GlobalBackbuffer, 1066, 600);
 
@@ -389,13 +416,14 @@ int CALLBACK WinMain(
         if (Window)
         {
             GlobalRunning = true;
-            int XOffset = 0;
-            int YOffset = 0;
+
+            game_input Input[2] = {};
+            game_input *NewInput = &Input[0];
+            game_input *OldInput = &Input[1];
 
             // Sound test
             win32_sound_output SoundOutput = {};
             SoundOutput.SamplesPerSecond = 48000;
-            SoundOutput.ToneHz = 256;
             SoundOutput.BytesPerSample = sizeof(int16) * 2;
             SoundOutput.SecondaryBufferSize = SoundOutput.BytesPerSample * SoundOutput.SamplesPerSecond; // 1-second buffer
             SoundOutput.RunningSampleIndex = 0;
@@ -413,21 +441,29 @@ int CALLBACK WinMain(
 
             LARGE_INTEGER LastPerfCount;
             QueryPerformanceCounter(&LastPerfCount);
-            uint64_t LastCycleCount = __rdtsc();
+            uint64 LastCycleCount = __rdtsc();
 
             while (GlobalRunning)
             {
-                MSG Message;
-                while (PeekMessage(&Message, 0, 0, 0, PM_REMOVE))
-                {
-                    if (Message.message == WM_QUIT)
-                    {
-                        GlobalRunning = false;
-                    }
+                // TODO zeroing macro
+                // TODO don't zero everything
+                game_controller_input *OldKeyboardController = &OldInput->Controllers[0];
+                game_controller_input *NewKeyboardController = &NewInput->Controllers[0];
+                game_controller_input ZeroController = {};
+                *NewKeyboardController = ZeroController;
 
-                    TranslateMessage(&Message);
-                    DispatchMessage(&Message);
+                for (int ButtonIndex = 0;
+                    ButtonIndex < ArrayCount(OldKeyboardController->Buttons);
+                    ButtonIndex++)
+                {
+                    // Copy EndedDown state from old controller so will persist from the last frame,
+                    // unless windows is about to tell us it changed.
+                    NewKeyboardController->Buttons[ButtonIndex].EndedDown =
+                        OldKeyboardController->Buttons[ButtonIndex].EndedDown;
                 }
+
+
+                Win32ProcessPendingMessages(NewKeyboardController);
 
                 // Compute what the sound buffer currently requires from the game
                 DWORD ByteToLock = 0;
@@ -478,10 +514,7 @@ int CALLBACK WinMain(
                 GameGraphicsBuffer.Pitch = GlobalBackbuffer.Pitch;
 
                 // Ask game for output
-                GameUpdateAndRender(
-                    &GameGraphicsBuffer,
-                    XOffset, YOffset,
-                    &GameSoundOutput, SoundOutput.ToneHz);
+                GameUpdateAndRender(&GameGraphicsBuffer, Input, &GameSoundOutput);
 
                 if (SoundIsValid)
                 {
@@ -496,48 +529,28 @@ int CALLBACK WinMain(
                     Dimension.Width, Dimension.Height);
                 ReleaseDC(Window, DeviceContext);
 
-                if (GoingUp)
-                {
-                    // TODO: make cntrol speed cumulative?
-                    // TODO: prevent wraparound to 0
-                    YOffset -= CONTROL_SPEED;
-                    SoundOutput.ToneHz++;
-                }
-                if (GoingDown)
-                {
-                    YOffset += CONTROL_SPEED;
-                    if (SoundOutput.ToneHz > 1)
-                    {
-                        SoundOutput.ToneHz--;
-                    }
-                }
-                if (GoingLeft)
-                {
-                    XOffset -= CONTROL_SPEED;
-                }
-                if (GoingRight)
-                {
-                    XOffset += CONTROL_SPEED;
-                }
-
-                uint64_t EndCycleCount = __rdtsc();
-                int ElapsedCycleCount = EndCycleCount - LastCycleCount;
+                uint64 EndCycleCount = __rdtsc();
+                int ElapsedCycleCount = (int)(EndCycleCount - LastCycleCount);
 
                 LARGE_INTEGER EndPerfCount;
                 QueryPerformanceCounter(&EndPerfCount);
-                int64_t ElapsedPerfCount = EndPerfCount.QuadPart - LastPerfCount.QuadPart;
-                int32_t ElapsedMilliseconds = (1000*ElapsedPerfCount) / PerfCountPerSecond;
-                int FramesPerSecond = PerfCountPerSecond / ElapsedPerfCount;
-                uint64_t CyclesPerSecond = ElapsedCycleCount * FramesPerSecond;
+                int64 ElapsedPerfCount = EndPerfCount.QuadPart - LastPerfCount.QuadPart;
+                int32 ElapsedMilliseconds = (int32)((1000*ElapsedPerfCount) / PerfCountPerSecond);
+                int FramesPerSecond = (int)(PerfCountPerSecond / ElapsedPerfCount);
+                uint64 CyclesPerSecond = ElapsedCycleCount * FramesPerSecond;
 
-                char Buffer[256];
-                sprintf(Buffer, "Elapsed MS: %d, FPS = %d\n", ElapsedMilliseconds, FramesPerSecond);
-                OutputDebugStringA(Buffer);
-                sprintf(Buffer, "Elapsed cycles: %d, per sec = %I64u\n", ElapsedCycleCount, CyclesPerSecond);
-                OutputDebugStringA(Buffer);
+                // char Buffer[256];
+                // sprintf_s(Buffer, sizeof(Buffer), "Elapsed MS: %d, FPS = %d\n", ElapsedMilliseconds, FramesPerSecond);
+                // OutputDebugStringA(Buffer);
+                // sprintf_s(Buffer, sizeof(Buffer), "Elapsed cycles: %d, per sec = %I64u\n", ElapsedCycleCount, CyclesPerSecond);
+                // OutputDebugStringA(Buffer);
 
                 LastPerfCount = EndPerfCount;
                 LastCycleCount = EndCycleCount;
+
+                game_input *Temp = NewInput;
+                NewInput = OldInput;
+                OldInput = Temp;
             }
         } else {
             // TODO logging
