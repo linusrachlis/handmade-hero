@@ -415,6 +415,9 @@ int CALLBACK WinMain(
     int GameUpdateHz = MonitorRefreshHz / 2;
     float TargetSecondsPerFrame = 1.0f / (float)GameUpdateHz;
 
+    UINT DesiredSleepResolutionMs = 1;
+    bool SleepIsGranular = (timeBeginPeriod(DesiredSleepResolutionMs) == TIMERR_NOERROR);
+
     if (RegisterClass(&WindowClass)) {
         HWND Window = CreateWindowEx(
             0,
@@ -536,22 +539,43 @@ int CALLBACK WinMain(
                     Win32FillSoundBuffer(&SoundOutput, ByteToLock, BytesToWrite, &GameSoundOutput);
                 }
 
+                LARGE_INTEGER EndPerfCount = Win32GetPerfCount();
+                double SecondsElapsed = Win32GetSecondsElapsed(LastPerfCount, EndPerfCount);
+
+                if (SecondsElapsed < TargetSecondsPerFrame)
+                {
+                    if (SleepIsGranular)
+                    {
+                        // NOTE: use sleep if it's able to be precise enough. Otherwise,
+                        // melt the CPU if we have to in order to achieve accurate timing.
+                        DWORD SleepMs = (DWORD)(1000.0f * (TargetSecondsPerFrame - SecondsElapsed));
+                        if (SleepMs > 0)
+                        {
+                            Sleep(SleepMs);
+                        }
+                    }
+
+                    // NOTE: might as well leave this while loop on the same level as the sleep "if"
+                    // above, since it will maybe make up for any fraction of a MS that sleep was
+                    // unable to take care of.
+                    while (SecondsElapsed < TargetSecondsPerFrame)
+                    {
+                        EndPerfCount = Win32GetPerfCount();
+                        SecondsElapsed = Win32GetSecondsElapsed(LastPerfCount, EndPerfCount);
+                    }
+                }
+                else
+                {
+                    // TODO missed frame rate!
+                }
+
+                // After sleeping, flip the new frame
                 HDC DeviceContext = GetDC(Window);
                 win32_window_dimension Dimension = Win32GetWindowDimension(Window);
                 Win32PaintBufferToWindow(
                     &GlobalBackbuffer, DeviceContext,
                     Dimension.Width, Dimension.Height);
                 ReleaseDC(Window, DeviceContext);
-
-                LARGE_INTEGER EndPerfCount = Win32GetPerfCount();
-                double SecondsElapsed = Win32GetSecondsElapsed(LastPerfCount, EndPerfCount);
-
-                while (SecondsElapsed < TargetSecondsPerFrame)
-                {
-                    // TODO don't melt CPU
-                    EndPerfCount = Win32GetPerfCount();
-                    SecondsElapsed = Win32GetSecondsElapsed(LastPerfCount, EndPerfCount);
-                }
 
                 uint64 EndCycleCount = __rdtsc();
                 int64 ElapsedCycleCount = EndCycleCount - LastCycleCount;
